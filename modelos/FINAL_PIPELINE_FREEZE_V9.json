@@ -48,6 +48,12 @@
       "scope": "Corrigido bug de normalizacao no localizador (traveling_wave_localizer.py e adaptive_localizer.py): janela de baseline passou de fixa (0.03-0.075s) para a mesma janela de regime permanente relativa ao inicio da simulacao usada em feature_extraction.py. Teto de busca de reflexao ampliado de 500km para 620km.",
       "informal_validation_accuracy": "t_cl=33ms e t_cl=117ms a 150km: erro caiu de 79-243km (falso-conclusivo) para 0,31km em ambos. 30 casos novos em 400-500km: 0 falso-conclusivos (antes 0 testados nessa condicao especifica, mas o mesmo bug se aplicava). 30 casos novos em 500-600km (fora da faixa antes validada): 28/30 conclusivos, 0 falso-conclusivos, MAE 1,66km, erro maximo 7,12km.",
       "note": "A causa raiz das duas limitacoes documentadas em v1-v8 (distancia errada fora de 80-105ms, e reflexao falsa aceita acima de 450km) era a mesma: a janela de normalizacao presa ao t_cl classico distorcia a curva de correlacao em qualquer cenario fora dela. Corrigindo a normalizacao, ambas desapareceram na revalidacao."
+    },
+    {
+      "version": "v9-batch",
+      "scope": "Bateria de validacao em escala apos a correcao v9: 280 casos novos cobrindo toda a faixa documentada (10 classes, distancia 15-600km, Rfault 0.01-3000ohm em 3 faixas, angulo 0-360, 220 com t_cl classico e 60 com t_cl livre 25-125ms).",
+      "informal_validation_accuracy": "Classificacao: 279/280 = 99.64% (1 erro: CG confundido com BG, confianca baixa 31%, 106ohm/164km). Localizacao: 269/280 conclusivos (96.1%), MAE 2.61km entre os conclusivos corretos, mas 4/269 conclusivos (1.5%) foram falso-conclusivos (erro 58-162km).",
+      "note": "A correcao v9 eliminou os padroes sistematicos conhecidos (t_cl fora de 80-105ms, >450km), mas nao eliminou completamente o risco de reflexao falsa: em escala ainda ocorre ocasionalmente (~1.4% dos casos totais), sem um padrao unico identificavel (ocorreu em Rfault alto e baixo, t_cl classico e no limite da janela ampliada, distancias medias e longas). Tentativa de usar a margem entre o 1o e 2o candidato como filtro adicional NAO funcionou: casos corretos tem margens tao baixas quanto os errados (ambos na faixa 0.001-0.05), entao nao ha um limiar que rejeite os ruins sem tambem rejeitar bons. Este e o principal risco residual conhecido do localizador."
     }
   ],
   "classifier": {
@@ -67,6 +73,7 @@
     "maximum_search_distance_km": 620.0
   },
   "known_limitations": [
+    "RISCO PRINCIPAL: mesmo apos a correcao v9, o localizador ainda aceita reflexoes falsas como conclusivas em ~1.4% dos casos (4/280 na bateria de validacao em escala), com erro de 58-162km nesses casos. Nao ha padrao identificado (ocorre em Rfault alto e baixo, t_cl classico e no limite da janela) nem um filtro adicional (margem entre candidatos) que separe esses casos dos corretos sem tambem rejeitar casos bons. Nao reportar a localizacao como garantida; tratar como estimativa sujeita a esse risco residual.",
     "Confusao residual muito pontual ABG<->AB em curtissima distancia (1 erro em 300 testados na v5); nao reproduzida em 40 casos novos testados na v9 (0 erros) — tratada como ruido estatistico de um classificador ja proximo do teto, nao um padrao sistematico corrigivel.",
     "Taxonomia nao inclui falta trifasica-terra (ABCG) como classe separada.",
     "Validacoes v2-v9 sao lotes informais pos-treino, nao substituem uma campanha cega formal.",

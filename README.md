@@ -51,6 +51,7 @@ confiança e a forma de onda do evento.
 | Classificação — validação independente acumulada (300 casos) | Acurácia | 99,7% |
 | Localização — teste cego oficial (condição ideal, 15-450 km) | MAE / mediana / P95 | 0,665 km / 0,358 km / 2,834 km |
 | Localização — revalidação informal 500-600 km (após correção da janela de normalização) | MAE / máximo | 1,66 km / 7,12 km |
+| Validação em escala (280 casos, toda a faixa 15-600 km/Rfault/ângulo/t_cl) | Classificação / localização | 99,64% / 96,1% conclusivo, MAE 2,61 km, **1,5% falso-conclusivo entre os conclusivos** |
 | Confiança média das árvores (após calibração Platt/sigmoid) | — | ~88,7% |
 
 Todos os números de validação independente vêm de lotes gerados **depois**
@@ -178,6 +179,15 @@ produz corrente de neutro próxima de zero, com ou sem aterramento).
 
 ## Limitações conhecidas
 
+- **Risco principal do localizador**: mesmo após a correção da janela de
+  normalização, uma bateria de 280 casos cobrindo toda a faixa de
+  parâmetros mostrou que ~1,4% dos casos (4/280) ainda recebem uma
+  distância marcada como conclusiva mas errada por 58-162 km. Não há
+  padrão identificado (ocorre com Rfault alto e baixo, t_cl clássico e no
+  limite da janela ampliada) nem um filtro adicional (testada a margem
+  entre o 1º e o 2º candidato de reflexão) que separe esses casos dos
+  corretos sem também rejeitar casos bons. Trate a distância reportada
+  como estimativa sujeita a esse risco residual, não como garantia.
 - Há uma confusão residual muito pontual entre `ABG` e `AB` em distâncias
   muito curtas (1 caso em 300 testados na v5); não foi reproduzida em 40
   casos novos testados na v9 — tratada como ruído estatístico, não um
@@ -215,6 +225,7 @@ Resumo da evolução do classificador; detalhes completos em
 | v7 | Faixa de Rfault ampliada (100 Ω → 3000 Ω), validada sem retreino | 100% em faixa estendida |
 | v8 | Janela de detecção do classificador ampliada; guarda de segurança adicionada ao localizador | 99,7% mantido com t_cl livre |
 | v9 | Corrigido bug de normalização no localizador (janela de baseline fixa → relativa ao início da simulação) | t_cl fora de 80-105ms: erro caiu de 79-243km para 0,31km; 500-600km: 0 falso-conclusivos em 30 casos, MAE 1,66km |
+| v9-batch | Validação em escala (280 casos, toda a faixa de parâmetros) | Classificação 99,64%; localização 96,1% conclusivo, MAE 2,61km, 1,5% falso-conclusivo entre os conclusivos (risco residual documentado) |
 
 ---
 

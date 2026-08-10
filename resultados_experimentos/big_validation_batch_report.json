@@ -1,0 +1,72 @@
+{
+  "total_cases": 280,
+  "valid_cases": 280,
+  "generation_errors": 0,
+  "classification": {
+    "accuracy": 0.9964285714285714,
+    "n_correct": 279,
+    "n_total": 280,
+    "confusion_true_to_pred": {
+      "BC->BC": 28,
+      "BCG->BCG": 28,
+      "BG->BG": 28,
+      "CAG->CAG": 28,
+      "ABC->ABC": 28,
+      "AB->AB": 28,
+      "AG->AG": 28,
+      "CA->CA": 28,
+      "ABG->ABG": 28,
+      "CG->CG": 27,
+      "CG->BG": 1
+    }
+  },
+  "localization": {
+    "conclusive_rate": 0.9607142857142857,
+    "n_conclusive": 269,
+    "mae_km": 2.608769969337819,
+    "median_km": 0.7221080356392235,
+    "max_km": 162.08553994699383,
+    "false_conclusive_count": 4,
+    "false_conclusive_cases": [
+      {
+        "run_id": "run_930001",
+        "true_class": "BG",
+        "distance_km": 246.08388088718692,
+        "estimated_km": 144.46456242454818,
+        "error_km": 101.61931846263874
+      },
+      {
+        "run_id": "run_930022",
+        "true_class": "CG",
+        "distance_km": 164.02766953491434,
+        "estimated_km": 1.942129587920503,
+        "error_km": 162.08553994699383
+      },
+      {
+        "run_id": "run_920111",
+        "true_class": "BG",
+        "distance_km": 325.1382136433361,
+        "estimated_km": 208.4054442422386,
+        "error_km": 116.7327694010975
+      },
+      {
+        "run_id": "run_920093",
+        "true_class": "AB",
+        "distance_km": 482.24907006292136,
+        "estimated_km": 424.5794068361592,
+        "error_km": 57.66966322676217
+      }
+    ]
+  },
+  "generation_error_details": [],
+  "misclassified_cases": [
+    {
+      "run_id": "run_930022",
+      "true_class": "CG",
+      "pred_class": "BG",
+      "confidence": 0.3100687290684558,
+      "distance_km": 164.02766953491434,
+      "rfault_ohm": 106.38270812901582
+    }
+  ]
+}
