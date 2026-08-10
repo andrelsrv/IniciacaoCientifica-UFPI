@@ -1,0 +1,22 @@
+{
+  "frozen_at": "2026-08-07",
+  "purpose": "Congelamento v2: retreino com 36 casos extras de ABG/BCG/CAG em 200-450km, adicionados apos observar confusao sistematica na validacao informal do v1.",
+  "based_on": "campaign_v4 (500 casos originais) + 36 casos novos gerados em campaign_v4_augment",
+  "classifier": {
+    "path": "C:\\RESULTPESQUISA\\campaign_v4_augment\\classifier_robust_v2\\robust_classifier.joblib",
+    "sha256": "D58A1D9DE3DBF488792E686F7C14A082F7AAB1A7A3BE85297600905302BF5CD7",
+    "training": "386 casos de treino (350 originais + 36 novos) x 7 condicoes; validacao com 80 casos originais (macro-F1 1.0 interno)"
+  },
+  "informal_validation": {
+    "description": "Lote de 50 casos novos (5 por classe, parametros nao usados no treino/validacao/teste oficial), gerados e classificados fora do protocolo formal de teste cego.",
+    "v1_accuracy": 0.84,
+    "v2_accuracy": 0.92,
+    "note": "NAO substitui uma campanha cega formal (treino/validacao/test_unseen bloqueados antes da geracao). E evidencia de melhoria, nao validacao estatisticamente robusta."
+  },
+  "known_limitations": [
+    "Confusao residual entre BC e BCG em pelo menos 1 caso do lote informal (~110km, confianca 47%).",
+    "Taxonomia nao inclui falta trifasica-terra (ABCG) como classe separada.",
+    "Localizador nao aprovado em SNR 40dB nem combinado 30dB (ver RELATORIO_FINAL.md original)."
+  ],
+  "policy": "Este e um artefato v2 de escopo experimental/exploratorio. Para reivindicar desempenho imparcial equivalente ao v1, seria necessaria uma nova campanha cega formal com test_unseen bloqueado antes do treino."
+}

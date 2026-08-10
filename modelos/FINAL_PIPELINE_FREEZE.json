@@ -1,0 +1,26 @@
+{
+  "frozen_at": "2026-08-03",
+  "purpose": "Congelamento anterior à primeira e única abertura do test_unseen",
+  "test_unseen_opened_at_freeze": false,
+  "classifier": {
+    "path": "campaign_v4/classifier_robust_v1/robust_classifier.joblib",
+    "sha256": "3382B29B487CFE3EA350AC15B47D901A28CFEBD904EF4D90EF2384FA2360A9DF",
+    "training": "350 casos de treino x 7 condições; validação não incluída"
+  },
+  "traveling_wave_velocity_km_per_us": 0.29927465071442727,
+  "adaptive_snr_threshold_db": 50.0,
+  "multiscale_cutoffs_hz": [60000, 80000, 100000, 150000],
+  "multiscale_maximum_spread_km": 3.0,
+  "source_sha256": {
+    "feature_extraction.py": "D9BB4EFD0A1FAA90E6467A67678ACE7923095AE00BAF2CC21A342813939D0E4F",
+    "traveling_wave_localizer.py": "4FFAFD32827577361CF9E230575B0C2A32BE05711F872B0B273117291E2EEA0A",
+    "multiscale_localizer.py": "46C02540A4C82E65B76BAC9E84E225C15E6323FEDD7B2D04596B313DD8BE4027",
+    "adaptive_localizer.py": "2BBE208DEA5CE853218BDF24831E9D031AF852E4678FE7C3DD0B4C612B89083B",
+    "robustness_evaluation.py": "FB8F9662A307ED12472D0F4FD3F4E4F5FAC62753D063C10248F6A5069E632D2D"
+  },
+  "validation_report_sha256": {
+    "traveling_wave_v1": "0FD28FAE08450CA7A9F53BB2756EEFA0B444AA640CA01364BD3D87718623DF16",
+    "robustness_v3": "AA84E1D437587FEDFF7065A3ED8D6F2497D1394AF862B42C50883577A08A6C50"
+  },
+  "policy": "Nenhum parâmetro, atributo, modelo ou limiar pode ser alterado após observar test_unseen sem criar uma nova campanha cega."
+}

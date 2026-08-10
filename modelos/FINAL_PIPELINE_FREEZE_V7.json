@@ -1,0 +1,81 @@
+{
+  "frozen_at": "2026-08-10",
+  "purpose": "Congelamento v7: mesmo classificador v6 (calibrado), com a faixa validada de Rfault ampliada de 100 para 3000 ohm apos teste de generalizacao (nenhum retreino necessario).",
+  "history": [
+    {
+      "version": "v1",
+      "scope": "original, 500 casos, 350 treino/80 validacao/70 teste cego oficial",
+      "blind_test_accuracy": "macro-F1 100% (7 condicoes oficiais); localizador MAE 0.665km em 15-450km ideal"
+    },
+    {
+      "version": "v2",
+      "scope": "+36 casos ABG/BCG/CAG em 200-450km",
+      "informal_validation_accuracy": "91.8% em 110 casos novos (2 lotes independentes, 15-450km)"
+    },
+    {
+      "version": "v3",
+      "scope": "+80 casos em 450-600km (10 classes)",
+      "informal_validation_accuracy": "96.0% em 50 casos novos, 15-600km"
+    },
+    {
+      "version": "v4",
+      "scope": "+450 casos (enfase 200-600km, todas as 10 classes)",
+      "informal_validation_accuracy": "98,7% combinado em 230 casos independentes (160+70); 100% nas 6 classes com terra (138/138)"
+    },
+    {
+      "version": "v5",
+      "scope": "+80 casos sem terra em 15-80km",
+      "informal_validation_accuracy": "99,7% combinado em 300 casos independentes (230+70); 100% no lote de confirmacao final de 70 casos."
+    },
+    {
+      "version": "v6",
+      "scope": "Calibracao de confianca (Platt/sigmoid) sobre o classificador v5, sem alterar dados de treino",
+      "informal_validation_accuracy": "99,7% (identico ao v5) em 300 casos independentes; confianca media sobe de ~75% para 88,7%"
+    },
+    {
+      "version": "v7",
+      "scope": "Ampliacao da faixa validada de Rfault (100 -> 3000 ohm), sem alteracao no modelo ou nos dados de treino",
+      "informal_validation_accuracy": "100% (30/30) testando as 10 classes em Rfault 1000-3000 ohm a 300km, e 100% (22/22) num teste inicial com AG isolado ate 3000 ohm em 150km e 500km. Confianca calibrada estavel 88-92%.",
+      "note": "O modelo foi treinado apenas ate 100 ohm mas generaliza bem alem disso; a faixa de 100 ohm documentada em versoes anteriores era conservadora, nao um limite fisico real."
+    }
+  ],
+  "classifier": {
+    "path": "C:\\Users\\sams\\Desktop\\PEQUISAACADEMICA\\PesquisaAcademicaUFPIV2\\PesquisaAcademicaUFPI\\modelos\\robust_classifier_v5_calibrated.joblib",
+    "sha256": "FEE3433C873245953F9DD8BD1D55A7CD06D17EA5F4AE4F441266C7F80400561C",
+    "training": "Mesmo modelo base do v5 (1146 casos x 7 condicoes) + calibracao Platt/sigmoid sobre os 100 casos de validacao",
+    "validated_distance_range_km": [
+      15,
+      600
+    ],
+    "calibration_method": "sigmoid (Platt), scikit-learn CalibratedClassifierCV, cv=prefit",
+    "validated_rfault_range_ohm": [
+      0.01,
+      3000.0
+    ]
+  },
+  "localizer": {
+    "validated_distance_range_km": [
+      15,
+      450
+    ],
+    "note": "NAO estendido para 600km. Teste informal em 600km mostrou 3/43 casos conclusivos com reflexao falsa aceita (erro de 65-390km), confirmando e agravando a limitacao ja documentada no RELATORIO_FINAL.md original. Fora de 450km, a localizacao NAO deve ser reportada como confiavel.",
+    "snr_threshold_db": 50.0
+  },
+  "known_limitations": [
+    "Confusao residual muito pontual ABG<->AB em curtissima distancia (1 erro em 300 testados).",
+    "Localizador nao estendido para 600km; permanece valido em 15-450km.",
+    "Taxonomia nao inclui falta trifasica-terra (ABCG) como classe separada.",
+    "Validacoes v2-v5 sao lotes informais pos-treino, nao substituem uma campanha cega formal."
+  ],
+  "policy": "Este e um artefato experimental derivado do FINAL_PIPELINE_FREEZE.json original (v1). Para reivindicar rigor cego equivalente ao v1, seria necessaria uma campanha formal nova com splits bloqueados antes do treino.",
+  "traveling_wave_velocity_km_per_us": 0.29927465071442727,
+  "adaptive_snr_threshold_db": 50.0,
+  "multiscale_cutoffs_hz": [
+    60000,
+    80000,
+    100000,
+    150000
+  ],
+  "multiscale_maximum_spread_km": 3.0,
+  "based_on": "campaign_v5_900 (1066 casos) + 80 casos novos em campaign_v6_ab_focus"
+}

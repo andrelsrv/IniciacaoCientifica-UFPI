@@ -1,0 +1,65 @@
+{
+  "frozen_at": "2026-08-08",
+  "purpose": "Congelamento v5: reforco de 80 casos sem terra (AB/BC/CA/ABC) em curta distancia (15-80km), regiao onde o erro residual do v4 se concentrava.",
+  "history": [
+    {
+      "version": "v1",
+      "scope": "original, 500 casos, 350 treino/80 validacao/70 teste cego oficial",
+      "blind_test_accuracy": "macro-F1 100% (7 condicoes oficiais); localizador MAE 0.665km em 15-450km ideal"
+    },
+    {
+      "version": "v2",
+      "scope": "+36 casos ABG/BCG/CAG em 200-450km",
+      "informal_validation_accuracy": "91.8% em 110 casos novos (2 lotes independentes, 15-450km)"
+    },
+    {
+      "version": "v3",
+      "scope": "+80 casos em 450-600km (10 classes)",
+      "informal_validation_accuracy": "96.0% em 50 casos novos, 15-600km"
+    },
+    {
+      "version": "v4",
+      "scope": "+450 casos (enfase 200-600km, todas as 10 classes)",
+      "informal_validation_accuracy": "98,7% combinado em 230 casos independentes (160+70); 100% nas 6 classes com terra (138/138)"
+    },
+    {
+      "version": "v5",
+      "scope": "+80 casos sem terra em 15-80km",
+      "informal_validation_accuracy": "99,7% combinado em 300 casos independentes (230+70); 100% no lote de confirmacao final de 70 casos."
+    }
+  ],
+  "classifier": {
+    "path": "C:\\RESULTPESQUISA\\campaign_v6_ab_focus\\classifier_robust_v5\\robust_classifier.joblib",
+    "sha256": "4A5B2FF932255557085BF4547D3254748CC463D941DC79F722511FF6924F04FB",
+    "training": "1146 casos base x 7 condicoes de robustez",
+    "validated_distance_range_km": [
+      15,
+      600
+    ]
+  },
+  "localizer": {
+    "validated_distance_range_km": [
+      15,
+      450
+    ],
+    "note": "NAO estendido para 600km. Teste informal em 600km mostrou 3/43 casos conclusivos com reflexao falsa aceita (erro de 65-390km), confirmando e agravando a limitacao ja documentada no RELATORIO_FINAL.md original. Fora de 450km, a localizacao NAO deve ser reportada como confiavel.",
+    "snr_threshold_db": 50.0
+  },
+  "known_limitations": [
+    "Confusao residual muito pontual ABG<->AB em curtissima distancia (1 erro em 300 testados).",
+    "Localizador nao estendido para 600km; permanece valido em 15-450km.",
+    "Taxonomia nao inclui falta trifasica-terra (ABCG) como classe separada.",
+    "Validacoes v2-v5 sao lotes informais pos-treino, nao substituem uma campanha cega formal."
+  ],
+  "policy": "Este e um artefato experimental derivado do FINAL_PIPELINE_FREEZE.json original (v1). Para reivindicar rigor cego equivalente ao v1, seria necessaria uma campanha formal nova com splits bloqueados antes do treino.",
+  "traveling_wave_velocity_km_per_us": 0.29927465071442727,
+  "adaptive_snr_threshold_db": 50.0,
+  "multiscale_cutoffs_hz": [
+    60000,
+    80000,
+    100000,
+    150000
+  ],
+  "multiscale_maximum_spread_km": 3.0,
+  "based_on": "campaign_v5_900 (1066 casos) + 80 casos novos em campaign_v6_ab_focus"
+}
