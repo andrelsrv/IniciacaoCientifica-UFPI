@@ -1,4 +1,3 @@
-feature/reorganizacao-pipeline-ml
 # Classificador e Localizador de Faltas em Linhas de Transmissão
 
 Pipeline de **detecção, classificação e localização de faltas** em linhas de
@@ -216,8 +215,3 @@ Resumo da evolução do classificador; detalhes completos em
 ---
 
 Desenvolvimento de pesquisa acadêmica (PIBIC) — Universidade Federal do Piauí.
-=======
-# PesquisaAcademicaUFPI
-Desenvolvimento de pesquisa acadêmica pela Universidade Federal do Piauí
-  teste de branch
-main
