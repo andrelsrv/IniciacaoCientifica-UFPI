@@ -50,6 +50,7 @@ confiança e a forma de onda do evento.
 | Classificação — teste cego oficial (70 casos, 7 condições) | Macro-F1 / acurácia | 100% |
 | Classificação — validação independente acumulada (300 casos) | Acurácia | 99,7% |
 | Localização — teste cego oficial (condição ideal, 15-450 km) | MAE / mediana / P95 | 0,665 km / 0,358 km / 2,834 km |
+| Localização — revalidação informal 500-600 km (após correção da janela de normalização) | MAE / máximo | 1,66 km / 7,12 km |
 | Confiança média das árvores (após calibração Platt/sigmoid) | — | ~88,7% |
 
 Todos os números de validação independente vêm de lotes gerados **depois**
@@ -79,7 +80,7 @@ src/                       Código-fonte Python (pipeline, treino, GUI)
 
 modelos/                   Artefatos congelados
 ├── robust_classifier_v5_calibrated.joblib   Classificador ativo
-├── FINAL_PIPELINE_FREEZE_V8.json            Congelamento ativo + histórico completo
+├── FINAL_PIPELINE_FREEZE_V9.json            Congelamento ativo + histórico completo
 └── classificador_config.master.json
 
 docs/                       Relatórios e documentação de continuidade
@@ -117,7 +118,7 @@ Ou, para inferência direta em linha de comando:
 cd src
 python infer_fault.py "C:\caminho\novo.pl4" `
   --classifier "..\modelos\robust_classifier_v5_calibrated.joblib" `
-  --freeze "..\modelos\FINAL_PIPELINE_FREEZE_V8.json" `
+  --freeze "..\modelos\FINAL_PIPELINE_FREEZE_V9.json" `
   --output resultado.json
 ```
 
@@ -165,11 +166,10 @@ validado com maior robustez.
 | Parâmetro | Faixa | Justificativa |
 |---|---|---|
 | Classificação (10 classes) | 15 – 600 km | limite físico usual de linha CA sem compensação série |
-| Localização | 15 – 450 km | acima disso o método pode aceitar uma reflexão falsa como confiável |
+| Localização | 15 – 600 km | teste cego oficial cobriu 15-450 km; 450-600 km foi revalidado informalmente após a correção da janela de normalização (v9) |
 | Resistência de falta (Rfault) | 0,01 – 3000 Ω | de curto franco até falta de alta impedância (vegetação/solo seco) |
 | Ângulo de incidência | 0° – 360° | a falta pode ocorrer em qualquer ponto do ciclo de 60 Hz |
-| Instante de fechamento (t_cl) — classificação | 0,025 – 0,125 s | livre dentro da simulação, com folga de regime permanente antes e janela de observação depois |
-| Instante de fechamento (t_cl) — localização | 0,080 – 0,105 s | o localizador ainda depende de uma janela de referência fixa internamente; fora dela, a distância é bloqueada em vez de arriscar um valor errado |
+| Instante de fechamento (t_cl) — classificação e localização | 0,025 – 0,125 s | livre dentro da simulação; antes da v9 o localizador exigia 0,080-0,105 s por um bug de normalização, já corrigido |
 
 `ABC-G` (trifásica-terra) não é uma classe suportada: testes de viabilidade
 mostraram que ela não é separável de `ABC` com confiabilidade estatística,
@@ -178,17 +178,20 @@ produz corrente de neutro próxima de zero, com ou sem aterramento).
 
 ## Limitações conhecidas
 
-- O localizador usa uma janela de normalização interna fixa (0,03–0,075 s)
-  que assume o evento fora desse intervalo; fora da faixa 80–105 ms de
-  fechamento de falta, a distância é bloqueada por segurança em vez de
-  reportada.
-- Acima de 450 km, o localizador pode aceitar reflexões espúrias como
-  válidas; por isso a localização não é reportada nesse regime.
 - Há uma confusão residual muito pontual entre `ABG` e `AB` em distâncias
-  muito curtas (1 caso em 300 testados).
+  muito curtas (1 caso em 300 testados na v5); não foi reproduzida em 40
+  casos novos testados na v9 — tratada como ruído estatístico, não um
+  padrão sistemático corrigível.
 - As validações incrementais (v2 em diante) são lotes informais pós-treino;
   apenas o teste cego oficial (v1) segue metodologia de campanha cega
   completa com splits bloqueados antes do treino.
+- A faixa 600-620 km do localizador é apenas folga técnica no teto de busca
+  e não foi validada com casos reais.
+
+Duas limitações documentadas em versões anteriores (localização bloqueada
+fora de 80-105 ms de fechamento de falta, e reflexões falsas aceitas acima
+de 450 km) tinham a mesma causa raiz — uma janela de normalização presa ao
+instante clássico de falta — corrigida na v9 (ver histórico abaixo).
 
 ## Testes automatizados
 
@@ -211,6 +214,7 @@ Resumo da evolução do classificador; detalhes completos em
 | v6 | Calibração de confiança (Platt/sigmoid) | 99,7% mantido; confiança média 75% → 88,7% |
 | v7 | Faixa de Rfault ampliada (100 Ω → 3000 Ω), validada sem retreino | 100% em faixa estendida |
 | v8 | Janela de detecção do classificador ampliada; guarda de segurança adicionada ao localizador | 99,7% mantido com t_cl livre |
+| v9 | Corrigido bug de normalização no localizador (janela de baseline fixa → relativa ao início da simulação) | t_cl fora de 80-105ms: erro caiu de 79-243km para 0,31km; 500-600km: 0 falso-conclusivos em 30 casos, MAE 1,66km |
 
 ---
 

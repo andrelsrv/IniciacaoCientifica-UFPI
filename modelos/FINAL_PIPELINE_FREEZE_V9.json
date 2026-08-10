@@ -1,0 +1,81 @@
+{
+  "frozen_at": "2026-08-10",
+  "purpose": "Congelamento v9: corrigido bug de normalizacao no localizador (janela de baseline fixa 0.03-0.075s, presa ao t_cl classico) que era a causa raiz de dois problemas antes tratados como separados: distancias erradas marcadas como conclusivas fora de 80-105ms, e reflexoes falsas aceitas acima de 450km. Classificador (joblib) NAO mudou nesta versao; apenas src/traveling_wave_localizer.py e src/adaptive_localizer.py.",
+  "history": [
+    {
+      "version": "v1",
+      "scope": "original, 500 casos, 350 treino/80 validacao/70 teste cego oficial",
+      "blind_test_accuracy": "macro-F1 100% (7 condicoes oficiais); localizador MAE 0.665km em 15-450km ideal"
+    },
+    {
+      "version": "v2",
+      "scope": "+36 casos ABG/BCG/CAG em 200-450km",
+      "informal_validation_accuracy": "91.8% em 110 casos novos (2 lotes independentes, 15-450km)"
+    },
+    {
+      "version": "v3",
+      "scope": "+80 casos em 450-600km (10 classes)",
+      "informal_validation_accuracy": "96.0% em 50 casos novos, 15-600km"
+    },
+    {
+      "version": "v4",
+      "scope": "+450 casos (enfase 200-600km, todas as 10 classes)",
+      "informal_validation_accuracy": "98,7% combinado em 230 casos independentes (160+70); 100% nas 6 classes com terra (138/138)"
+    },
+    {
+      "version": "v5",
+      "scope": "+80 casos sem terra em 15-80km",
+      "informal_validation_accuracy": "99,7% combinado em 300 casos independentes (230+70); 100% no lote de confirmacao final de 70 casos."
+    },
+    {
+      "version": "v6",
+      "scope": "Calibracao de confianca (Platt/sigmoid) sobre o classificador v5, sem alterar dados de treino",
+      "informal_validation_accuracy": "99,7% (identico ao v5) em 300 casos independentes; confianca media sobe de ~75% para 88,7%"
+    },
+    {
+      "version": "v7",
+      "scope": "Ampliacao da faixa validada de Rfault (100 -> 3000 ohm), sem alteracao no modelo ou nos dados de treino",
+      "informal_validation_accuracy": "100% (30/30) testando as 10 classes em Rfault 1000-3000 ohm a 300km, e 100% (22/22) num teste inicial com AG isolado ate 3000 ohm em 150km e 500km. Confianca calibrada estavel 88-92%.",
+      "note": "O modelo foi treinado apenas ate 100 ohm mas generaliza bem alem disso; a faixa de 100 ohm documentada em versoes anteriores era conservadora, nao um limite fisico real."
+    },
+    {
+      "version": "v8",
+      "scope": "Janela de deteccao do classificador ampliada (t_cl livre); localizador protegido por trava de seguranca fora de 80-105ms",
+      "informal_validation_accuracy": "99,7% mantido nos 300 casos independentes com a nova janela (mesmo modelo, sem retreino). Confirmado classificando corretamente com t_cl=30ms e t_cl=120ms (fora da janela antiga)."
+    },
+    {
+      "version": "v9",
+      "scope": "Corrigido bug de normalizacao no localizador (traveling_wave_localizer.py e adaptive_localizer.py): janela de baseline passou de fixa (0.03-0.075s) para a mesma janela de regime permanente relativa ao inicio da simulacao usada em feature_extraction.py. Teto de busca de reflexao ampliado de 500km para 620km.",
+      "informal_validation_accuracy": "t_cl=33ms e t_cl=117ms a 150km: erro caiu de 79-243km (falso-conclusivo) para 0,31km em ambos. 30 casos novos em 400-500km: 0 falso-conclusivos (antes 0 testados nessa condicao especifica, mas o mesmo bug se aplicava). 30 casos novos em 500-600km (fora da faixa antes validada): 28/30 conclusivos, 0 falso-conclusivos, MAE 1,66km, erro maximo 7,12km.",
+      "note": "A causa raiz das duas limitacoes documentadas em v1-v8 (distancia errada fora de 80-105ms, e reflexao falsa aceita acima de 450km) era a mesma: a janela de normalizacao presa ao t_cl classico distorcia a curva de correlacao em qualquer cenario fora dela. Corrigindo a normalizacao, ambas desapareceram na revalidacao."
+    }
+  ],
+  "classifier": {
+    "path": "modelos/robust_classifier_v5_calibrated.joblib",
+    "sha256": "FEE3433C873245953F9DD8BD1D55A7CD06D17EA5F4AE4F441266C7F80400561C",
+    "training": "Mesmo modelo base do v5 (1146 casos x 7 condicoes) + calibracao Platt/sigmoid sobre os 100 casos de validacao",
+    "validated_distance_range_km": [15, 600],
+    "calibration_method": "sigmoid (Platt), scikit-learn CalibratedClassifierCV, cv=prefit",
+    "validated_rfault_range_ohm": [0.01, 3000.0],
+    "event_window_s": [0.025, 0.125]
+  },
+  "localizer": {
+    "validated_distance_range_km": [15, 600],
+    "note": "Estendido de 450km para 600km em v9, apos correcao da janela de baseline (ver history/v9). Antes de v9, esta faixa era 15-450km; acima disso o metodo aceitava reflexoes falsas como confiaveis, causado pela mesma normalizacao quebrada corrigida agora.",
+    "snr_threshold_db": 50.0,
+    "safe_event_window_s": [0.025, 0.125],
+    "maximum_search_distance_km": 620.0
+  },
+  "known_limitations": [
+    "Confusao residual muito pontual ABG<->AB em curtissima distancia (1 erro em 300 testados na v5); nao reproduzida em 40 casos novos testados na v9 (0 erros) — tratada como ruido estatistico de um classificador ja proximo do teto, nao um padrao sistematico corrigivel.",
+    "Taxonomia nao inclui falta trifasica-terra (ABCG) como classe separada.",
+    "Validacoes v2-v9 sao lotes informais pos-treino, nao substituem uma campanha cega formal.",
+    "A faixa 600-620km do localizador (margem de busca) nao foi validada com casos reais; e apenas folga tecnica no teto de busca."
+  ],
+  "policy": "Este e um artefato experimental derivado do FINAL_PIPELINE_FREEZE.json original (v1). Para reivindicar rigor cego equivalente ao v1, seria necessaria uma campanha formal nova com splits bloqueados antes do treino.",
+  "traveling_wave_velocity_km_per_us": 0.29927465071442727,
+  "adaptive_snr_threshold_db": 50.0,
+  "multiscale_cutoffs_hz": [60000, 80000, 100000, 150000],
+  "multiscale_maximum_spread_km": 3.0,
+  "based_on": "campaign_v5_900 (1066 casos) + 80 casos novos em campaign_v6_ab_focus"
+}

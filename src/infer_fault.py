@@ -15,14 +15,15 @@ from feature_extraction import extract_features
 from signal_io import read_canonical_pl4
 from traveling_wave_localizer import TravelingWaveConfig
 
-# O classificador agora aceita o evento de falta em qualquer ponto de
-# ~0.025-0.125s (ver feature_extraction.py). O localizador, porem, ainda usa
-# uma janela de referencia fixa (0.03-0.075s) internamente e nao foi
-# revalidado fora do t_cl classico (0.0833-0.100s) — testes confirmaram que,
-# fora dessa faixa, ele pode devolver uma distancia errada marcada como
-# "conclusiva". Por seguranca, a localizacao fica bloqueada fora dela ate
-# que o localizador seja revisado e revalidado separadamente.
-LOCATION_SAFE_EVENT_WINDOW_S = (0.080, 0.105)
+# A janela de baseline do localizador (traveling_wave_localizer.py e
+# adaptive_localizer.py) era fixa (0.03-0.075s) e por isso dava distancias
+# erradas com falsa confianca fora do t_cl classico. Corrigido para usar a
+# mesma janela de regime permanente relativa ao inicio da simulacao que
+# feature_extraction.py usa (ver BASELINE_START_S/END_S) — validado com
+# casos reais em t_cl=33ms e t_cl=117ms (erro de 0.31km em ambos, antes o
+# erro chegava a 79-243km). A janela segura acompanha agora a mesma faixa
+# do classificador.
+LOCATION_SAFE_EVENT_WINDOW_S = (0.025, 0.125)
 
 
 def _sha256(path: Path) -> str:
@@ -94,9 +95,11 @@ def infer_fault(pl4: Path, classifier_path: Path, freeze_path: Path) -> dict[str
         },
         "location": location,
         "location_domain_warning": (
-            "A avaliação cega cobriu 15 a 450 km. Faltas muito próximas do "
-            "terminal (por exemplo, 1 km) não são resolvidas com segurança "
-            "pela janela atual de 40 us."
+            "A avaliação cega oficial cobriu 15 a 450 km; 15-600 km foi "
+            "revalidado informalmente após a correção da janela de "
+            "normalização (freeze v9). Faltas muito próximas do terminal "
+            "(por exemplo, 1 km) não são resolvidas com segurança pela "
+            "janela atual de 40 us."
         ),
         "estimated_prefault_snr_db": snr_db,
         "classifier_sha256": actual_hash,
