@@ -11,8 +11,8 @@ PDT. Toda entrada contém uma falta.
 
 ## Projeto e dados
 
-- Código: `C:\Users\sams\Desktop\PEQUISAACADEMICA\PesquisaAcademicaUFPIV2\PesquisaAcademicaUFPI`
-- Campanha: `C:\Users\sams\Desktop\PEQUISA ACADEMICA\PesquisaAcademicaUFPI-20260801T132603Z-1-001\pilot\campaign_v4`
+- Código: raiz do repositório
+- Campanha: `pilot\campaign_v4` (diretório local de trabalho, fora do repositório)
 - Manifesto: `campaign_v4\manifest.csv`
 - Plano bloqueado: `pilot\pilot_plan_10classes.csv`
 - ATP autorizado: `C:\ATP\atpmingw\tpbig.exe`

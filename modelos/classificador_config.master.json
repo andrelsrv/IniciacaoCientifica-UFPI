@@ -1,4 +1,4 @@
 {
-  "classifier": "C:\\Users\\sams\\Desktop\\PEQUISAACADEMICA\\PesquisaAcademicaUFPIV2\\PesquisaAcademicaUFPI\\modelos\\robust_classifier_v5_calibrated.joblib",
-  "freeze": "C:\\Users\\sams\\Desktop\\PEQUISAACADEMICA\\PesquisaAcademicaUFPIV2\\PesquisaAcademicaUFPI\\modelos\\FINAL_PIPELINE_FREEZE_V8.json"
+  "classifier": "robust_classifier_v5_calibrated.joblib",
+  "freeze": "FINAL_PIPELINE_FREEZE_V8.json"
 }

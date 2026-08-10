@@ -22,14 +22,8 @@ from pilot_planner import (
 
 TEMPLATE_ATP = Path(r"C:\RESULTPESQUISA\SIMULACAOUSADA.atp")
 OUTPUT_ROOT = Path(r"C:\RESULTPESQUISA\quick_check")
-CLASSIFIER = Path(
-    r"C:\Users\sams\Desktop\PEQUISA ACADEMICA\PesquisaAcademicaUFPI-20260801T132603Z-1-001"
-    r"\pilot\campaign_v4\classifier_robust_v1\robust_classifier.joblib"
-)
-FREEZE = Path(
-    r"C:\Users\sams\Desktop\PEQUISAACADEMICA\PesquisaAcademicaUFPIV2\PesquisaAcademicaUFPI"
-    r"\FINAL_PIPELINE_FREEZE.json"
-)
+CLASSIFIER = Path(__file__).resolve().parent.parent / "modelos" / "robust_classifier_v5_calibrated.joblib"
+FREEZE = Path(__file__).resolve().parent.parent / "modelos" / "FINAL_PIPELINE_FREEZE_V8.json"
 
 # Parametros novos, gerados por amostragem aleatoria continua (nao os valores
 # discretos usados no treino/validacao/teste cego oficial), 15-450km (faixa
