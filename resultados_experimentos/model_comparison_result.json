@@ -1,0 +1,26 @@
+[
+  {
+    "model": "ExtraTrees (atual)",
+    "accuracy": 0.9933333333333333,
+    "macro_f1": 0.9933259176863182,
+    "train_time_s": 0.5645420551300049
+  },
+  {
+    "model": "RandomForest",
+    "accuracy": 0.9966666666666667,
+    "macro_f1": 0.9966657404834678,
+    "train_time_s": 1.012329339981079
+  },
+  {
+    "model": "GradientBoosting",
+    "accuracy": 0.99,
+    "macro_f1": 0.989999073816801,
+    "train_time_s": 24.981127738952637
+  },
+  {
+    "model": "HistGradientBoosting",
+    "accuracy": 0.9766666666666667,
+    "macro_f1": 0.9765872567229266,
+    "train_time_s": 4.530502796173096
+  }
+]

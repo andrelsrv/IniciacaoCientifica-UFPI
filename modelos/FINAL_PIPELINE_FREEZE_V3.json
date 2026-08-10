@@ -1,0 +1,54 @@
+{
+  "frozen_at": "2026-08-08",
+  "purpose": "Congelamento v3: classificador retreinado com faixa de distancia estendida (15-600km). Localizador NAO estendido; permanece valido apenas em 15-450km.",
+  "history": [
+    {
+      "version": "v1",
+      "scope": "original, 500 casos, 350 treino/80 validacao/70 teste cego oficial",
+      "blind_test_accuracy": "macro-F1 100% (7 condicoes oficiais); localizador MAE 0.665km em 15-450km ideal"
+    },
+    {
+      "version": "v2",
+      "scope": "+36 casos ABG/BCG/CAG em 200-450km",
+      "informal_validation_accuracy": "91.8% em 110 casos novos (2 lotes independentes, 15-450km)"
+    },
+    {
+      "version": "v3",
+      "scope": "+80 casos em 450-600km (10 classes)",
+      "informal_validation_accuracy": "96.0% em 50 casos novos, 15-600km"
+    }
+  ],
+  "classifier": {
+    "path": "C:\\RESULTPESQUISA\\campaign_v4_600km\\classifier_robust_v3\\robust_classifier.joblib",
+    "sha256": "FF36DF023936E08BBCBAF3A845EC4E51901F5E9311D5F4AB51356A10C4D623E3",
+    "training": "616 casos base (500 originais + 36 v2 + 80 v3) x 7 condicoes de robustez",
+    "validated_distance_range_km": [
+      15,
+      600
+    ]
+  },
+  "localizer": {
+    "validated_distance_range_km": [
+      15,
+      450
+    ],
+    "note": "NAO estendido para 600km. Teste informal em 600km mostrou 3/43 casos conclusivos com reflexao falsa aceita (erro de 65-390km), confirmando e agravando a limitacao ja documentada no RELATORIO_FINAL.md original. Fora de 450km, a localizacao NAO deve ser reportada como confiavel.",
+    "snr_threshold_db": 50.0
+  },
+  "known_limitations": [
+    "Confusao ABC->BCG em faltas trifasicas acima de ~240km (2 casos no lote de validacao de 600km).",
+    "Localizador aceita reflexoes falsas como conclusivas em alguns casos alem de 450km; nao deve ser usado nessa faixa.",
+    "Taxonomia nao inclui falta trifasica-terra (ABCG) como classe separada.",
+    "Nenhuma das validacoes v2/v3 e uma campanha cega formal (train/validation/test_unseen bloqueados a priori); sao lotes informais de verificacao gerados apos o treino."
+  ],
+  "policy": "Este e um artefato experimental derivado do FINAL_PIPELINE_FREEZE.json original (v1). Para reivindicar rigor cego equivalente ao v1, seria necessaria uma campanha formal nova com splits bloqueados antes do treino.",
+  "traveling_wave_velocity_km_per_us": 0.29927465071442727,
+  "adaptive_snr_threshold_db": 50.0,
+  "multiscale_cutoffs_hz": [
+    60000,
+    80000,
+    100000,
+    150000
+  ],
+  "multiscale_maximum_spread_km": 3.0
+}

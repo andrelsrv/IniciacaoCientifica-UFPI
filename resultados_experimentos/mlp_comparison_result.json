@@ -1,0 +1,20 @@
+[
+  {
+    "model": "ExtraTrees (atual)",
+    "accuracy": 0.9933333333333333,
+    "macro_f1": 0.9933259176863182,
+    "train_time_s": 0.5647580623626709
+  },
+  {
+    "model": "MLP (rede neural, 1 camada 64)",
+    "accuracy": 0.9766666666666667,
+    "macro_f1": 0.9767139916404496,
+    "train_time_s": 0.9058842658996582
+  },
+  {
+    "model": "MLP (rede neural, 2 camadas 128-64)",
+    "accuracy": 0.98,
+    "macro_f1": 0.9801000216040731,
+    "train_time_s": 1.7381742000579834
+  }
+]

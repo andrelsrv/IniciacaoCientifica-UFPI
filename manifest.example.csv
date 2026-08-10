@@ -1,0 +1,2 @@
+run_id,file_path,split,fault_class,distance_km,rfault_ohm,incidence_angle_deg,remote_length_km,snr_db,gain_error_pct,sync_error_us,source_voltage_error_pct,source_impedance_error_pct
+run_000001,C:\RESULTPESQUISA\SIMULACAOUSADA.pl4,train,AG,230,0.01,0,70,,,,,
