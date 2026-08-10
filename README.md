@@ -1,92 +1,217 @@
-# Classificador e Localizador de Faltas — PIBIC UFPI
+# Classificador e Localizador de Faltas em Linhas de Transmissão
 
-Ferramentas para classificação de tipo de falta e localização de distância
-em linhas de transmissão, a partir de simulações ATP/ATPDraw, usando
-extração de atributos físicos + machine learning (ExtraTrees/RandomForest).
+Pipeline de **detecção, classificação e localização de faltas** em linhas de
+transmissão de energia, a partir de simulações eletromagnéticas transitórias
+(ATP/ATPDraw), usando extração de atributos físicos e *machine learning*.
+
+Projeto de Iniciação Científica (PIBIC) — Universidade Federal do Piauí.
+
+---
+
+## Sumário
+
+- [Visão geral](#visão-geral)
+- [Resultados](#resultados)
+- [Estrutura do projeto](#estrutura-do-projeto)
+- [Como usar (produto final)](#como-usar-produto-final)
+- [Como usar (código-fonte)](#como-usar-código-fonte)
+- [Como funciona](#como-funciona)
+- [Faixas de parâmetros validadas](#faixas-de-parâmetros-validadas)
+- [Limitações conhecidas](#limitações-conhecidas)
+- [Testes automatizados](#testes-automatizados)
+- [Histórico de versões do modelo](#histórico-de-versões-do-modelo)
+
+---
+
+## Visão geral
+
+Dado um sinal de tensão e corrente de dois terminais de uma linha de
+transmissão (arquivo `.pl4` gerado pelo ATP), o pipeline:
+
+1. **Detecta** o instante do evento de falta a partir de um limiar adaptativo
+   (mediana + desvio absoluto) sobre a energia do sinal, sem depender de um
+   instante fixo pré-configurado.
+2. **Classifica** o tipo de falta entre 10 classes (`AG`, `BG`, `CG`, `AB`,
+   `BC`, `CA`, `ABG`, `BCG`, `CAG`, `ABC`) usando um ensemble de árvores
+   (ExtraTrees) treinado sobre 61 atributos físicos (RMS, picos, componentes
+   simétricas, degraus transitórios).
+3. **Localiza** a distância da falta a partir do terminal local por
+   correlação de ondas viajantes (frente incidente vs. reflexão), com
+   verificação cruzada entre os dois terminais.
+
+O produto final é um aplicativo gráfico standalone (`.exe`, não requer
+Python instalado) que recebe um `.pl4` e devolve classe, distância,
+confiança e a forma de onda do evento.
+
+## Resultados
+
+| Etapa | Métrica | Valor |
+|---|---|---|
+| Classificação — teste cego oficial (70 casos, 7 condições) | Macro-F1 / acurácia | 100% |
+| Classificação — validação independente acumulada (300 casos) | Acurácia | 99,7% |
+| Localização — teste cego oficial (condição ideal, 15-450 km) | MAE / mediana / P95 | 0,665 km / 0,358 km / 2,834 km |
+| Confiança média das árvores (após calibração Platt/sigmoid) | — | ~88,7% |
+
+Todos os números de validação independente vêm de lotes gerados **depois**
+do treino, nunca reaproveitados como dado de treino (auditoria automática de
+vazamento em `src/manifest.py`).
 
 ## Estrutura do projeto
 
 ```
-app/                    Produto final para uso — dê 2 cliques em ABRIR_CLASSIFICADOR.bat
-├── ClassificadorFaltasATP.exe   Aplicativo standalone (não precisa de Python instalado)
-├── classificador_config.json    Aponta para o modelo ativo (modelos/)
-└── ABRIR_CLASSIFICADOR.bat
+app/                      Produto final para uso direto
+├── ClassificadorFaltasATP.exe   Aplicativo standalone (não precisa de Python)
+├── classificador_config.json    Aponta para o modelo ativo em modelos/
+└── ABRIR_CLASSIFICADOR.bat      Atalho de execução
 
-src/                     Todo o código-fonte Python (pipeline, treino, GUI)
+src/                       Código-fonte Python (pipeline, treino, GUI)
 ├── classificador_gui_v2.py       Interface gráfica (com gráfico da forma de onda)
 ├── infer_fault.py                Inferência via linha de comando
 ├── feature_extraction.py         Extração dos 61 atributos físicos
-├── pl4_reader.py / signal_io.py  Leitura de .pl4 / .adf
-├── *_localizer.py                Localização por ondas viajantes
+├── pl4_reader.py / signal_io.py  Leitura de arquivos .pl4 / .adf
+├── traveling_wave_localizer.py   Localização por correlação de ondas viajantes
+├── adaptive_localizer.py         Localização multi-banda com verificação de SNR
 ├── fault_case_generator.py       Geração de casos de falta no ATP
-├── simulation_generator.py       Geração + execução de simulações ATP
-├── train_*.py                    Scripts de treino dos classificadores
+├── simulation_generator.py       Geração e execução de simulações ATP
+├── manifest.py                    Validação e auditoria anti-vazamento do manifesto
+├── train_*.py                     Scripts de treino dos classificadores
 └── ABRIR_EM_MODO_DESENVOLVEDOR.bat  Roda a GUI a partir do código-fonte (requer Python)
 
-modelos/                 Artefatos congelados (classificador treinado + documentação)
-├── robust_classifier_v5.joblib
-├── FINAL_PIPELINE_FREEZE_V5.json (e versões anteriores v1-v4, histórico)
+modelos/                   Artefatos congelados
+├── robust_classifier_v5_calibrated.joblib   Classificador ativo
+├── FINAL_PIPELINE_FREEZE_V8.json            Congelamento ativo + histórico completo
 └── classificador_config.master.json
 
-docs/                    Relatórios e documentação do projeto
-resultados_experimentos/ Saídas de experimentos (curva de aprendizado, comparação de modelos)
-legado/                  Código e arquivos antigos, não usados no pipeline atual
-tests/                   Suíte de testes automatizados (35 testes)
-run_tests.py             Roda a suíte de testes (python run_tests.py)
+docs/                       Relatórios e documentação de continuidade
+resultados_experimentos/    Saídas de experimentos (curva de aprendizado, comparação de modelos)
+legado/                      Abordagem anterior (wavelet/limiar), mantida como referência histórica
+tests/                       Suíte de testes automatizados
+run_tests.py                 Executa toda a suíte (python run_tests.py)
 ```
 
-## Uso rápido (produto final)
+## Como usar (produto final)
 
-Dê dois cliques em `app\ABRIR_CLASSIFICADOR.bat` (ou direto em
-`ClassificadorFaltasATP.exe`). Na janela:
+1. Dê dois cliques em `app/ABRIR_CLASSIFICADOR.bat` (ou direto em
+   `ClassificadorFaltasATP.exe`).
+2. Clique em **Escolher PL4…** e selecione o arquivo gerado pelo ATPDraw.
+3. Clique em **Analisar**.
+4. Veja o tipo de falta, a distância, a confiança e a forma de onda no
+   gráfico.
+5. Use **Salvar resultado (JSON)…** para guardar o resultado.
 
-1. clique em **Escolher PL4…**;
-2. selecione o arquivo `.pl4` gerado pelo ATPDraw;
-3. clique em **Analisar**;
-4. veja o tipo de falta, distância, confiança e a forma de onda no gráfico;
-5. use **Salvar resultado (JSON)…** se quiser guardar o resultado.
+Não é necessário ter Python instalado — o `.exe` é standalone.
 
-Não precisa ter Python instalado — o `.exe` é standalone.
+## Como usar (código-fonte)
 
-## Uso via código-fonte / linha de comando
+Requer Python 3.11+ e as dependências em uso pelo projeto (`scikit-learn`,
+`numpy`, `scipy`, `joblib`, `matplotlib`).
 
 ```powershell
 cd src
 python classificador_gui_v2.py
+```
 
-# ou, para inferência direta em linha de comando:
+Ou, para inferência direta em linha de comando:
+
+```powershell
+cd src
 python infer_fault.py "C:\caminho\novo.pl4" `
-  --classifier "..\modelos\robust_classifier_v5.joblib" `
-  --freeze "..\modelos\FINAL_PIPELINE_FREEZE_V5.json" `
+  --classifier "..\modelos\robust_classifier_v5_calibrated.joblib" `
+  --freeze "..\modelos\FINAL_PIPELINE_FREEZE_V8.json" `
   --output resultado.json
 ```
 
-O resultado informa classe, fração de votos das árvores (não é probabilidade
-calibrada), SNR pré-falta estimado e distância desde PDT. A localização não é
-divulgada fora da faixa validada (15-450 km) por segurança.
+O resultado JSON informa a classe prevista, a fração de votos das árvores
+(não é uma probabilidade calibrada por si só — a calibração já foi aplicada
+sobre o classificador), o SNR pré-falta estimado, e a distância desde o
+terminal local. A localização não é divulgada fora da faixa validada.
 
-## Rodar os testes
+## Como funciona
 
-```powershell
-python run_tests.py
-```
+### Extração de atributos (`feature_extraction.py`)
+
+O instante do evento é localizado por comparação ciclo-a-ciclo (diferença
+entre a amostra atual e a amostra um ciclo de 60 Hz antes), suavizada e
+comparada a um limiar adaptativo derivado da mediana e do desvio absoluto
+mediano (MAD) do próprio sinal pré-falta — não um valor fixo arbitrário.
+A partir desse instante são extraídos 61 atributos: razões RMS e de pico
+antes/depois do evento, degrau transitório máximo, e razões de componentes
+simétricas (sequência zero/positiva/negativa) de tensão e corrente em
+ambos os terminais.
+
+### Classificação
+
+Um `ExtraTreesClassifier` (scikit-learn) é treinado sobre milhares de casos
+simulados em 10 classes de falta, selecionado entre vários candidatos
+(diferentes tamanhos de folha, diferentes algoritmos — comparado também
+contra RandomForest, Gradient Boosting e redes neurais MLP) pelo pior caso
+de F1-macro em 7 condições de robustez (ruído, erro de ganho, erro de
+sincronização). A confiança das árvores é recalibrada com
+`CalibratedClassifierCV` (método sigmoid/Platt) para refletir melhor a
+frequência real de acerto.
+
+### Localização
+
+A distância é obtida por correlação entre a frente de onda incidente e sua
+reflexão, nos componentes aéreos de Clarke (transformação modal alfa/beta),
+com verificação cruzada de consistência entre os dois terminais. Abaixo de
+um SNR estimado de 50 dB, ou fora da janela temporal em que o método foi
+validado, a localização é bloqueada e reportada como inconclusiva — a
+classificação permanece disponível de qualquer forma, pois é o componente
+validado com maior robustez.
 
 ## Faixas de parâmetros validadas
 
 | Parâmetro | Faixa | Justificativa |
 |---|---|---|
-| Classificação (10 classes: AG/BG/CG/AB/BC/CA/ABG/BCG/CAG/ABC) | 15 – 600 km | limite físico de linha CA sem compensação série |
-| Localização | 15 – 450 km | acima disso o localizador aceita reflexão falsa como confiável |
-| Rfault | 0,01 – 3000 Ω | de curto franco até falta de alta impedância (vegetação/solo seco) |
-| Ângulo de incidência | 0° – 360° | falta pode ocorrer em qualquer ponto do ciclo de 60Hz |
-| t_cl (fechamento da falta) — classificação | 0,025 – 0,125 s | qualquer instante dentro da simulação de 0,15s, com folga de regime permanente antes e janela pós-falta depois |
-| t_cl (fechamento da falta) — localização | 0,080 – 0,105 s | o localizador ainda usa uma janela de referência fixa; fora dela, `infer_fault.py` bloqueia a distância em vez de arriscar um valor errado |
+| Classificação (10 classes) | 15 – 600 km | limite físico usual de linha CA sem compensação série |
+| Localização | 15 – 450 km | acima disso o método pode aceitar uma reflexão falsa como confiável |
+| Resistência de falta (Rfault) | 0,01 – 3000 Ω | de curto franco até falta de alta impedância (vegetação/solo seco) |
+| Ângulo de incidência | 0° – 360° | a falta pode ocorrer em qualquer ponto do ciclo de 60 Hz |
+| Instante de fechamento (t_cl) — classificação | 0,025 – 0,125 s | livre dentro da simulação, com folga de regime permanente antes e janela de observação depois |
+| Instante de fechamento (t_cl) — localização | 0,080 – 0,105 s | o localizador ainda depende de uma janela de referência fixa internamente; fora dela, a distância é bloqueada em vez de arriscar um valor errado |
 
-`ABC-G` (trifásica-terra) não é uma classe suportada — testes de viabilidade
-mostraram que não é separável de `ABC` com confiabilidade (ver
-`docs/RELATORIO_FINAL.md`).
+`ABC-G` (trifásica-terra) não é uma classe suportada: testes de viabilidade
+mostraram que ela não é separável de `ABC` com confiabilidade estatística,
+o que é consistente com a física do problema (uma falta trifásica simétrica
+produz corrente de neutro próxima de zero, com ou sem aterramento).
 
-Detalhes completos, histórico de versões (v1→v7) e limitações conhecidas em
-`modelos/FINAL_PIPELINE_FREEZE_V7.json` e `docs/RELATORIO_FINAL.md`.
+## Limitações conhecidas
 
-Desenvolvimento de pesquisa acadêmica pela Universidade Federal do Piauí (PIBIC).
+- O localizador usa uma janela de normalização interna fixa (0,03–0,075 s)
+  que assume o evento fora desse intervalo; fora da faixa 80–105 ms de
+  fechamento de falta, a distância é bloqueada por segurança em vez de
+  reportada.
+- Acima de 450 km, o localizador pode aceitar reflexões espúrias como
+  válidas; por isso a localização não é reportada nesse regime.
+- Há uma confusão residual muito pontual entre `ABG` e `AB` em distâncias
+  muito curtas (1 caso em 300 testados).
+- As validações incrementais (v2 em diante) são lotes informais pós-treino;
+  apenas o teste cego oficial (v1) segue metodologia de campanha cega
+  completa com splits bloqueados antes do treino.
+
+## Testes automatizados
+
+```powershell
+python run_tests.py
+```
+
+## Histórico de versões do modelo
+
+Resumo da evolução do classificador; detalhes completos em
+`modelos/FINAL_PIPELINE_FREEZE_V8.json` e `docs/RELATORIO_FINAL.md`.
+
+| Versão | Mudança | Resultado |
+|---|---|---|
+| v1 | Linha de base — 500 casos, teste cego oficial | Macro-F1 100% (7 condições); localizador MAE 0,665 km |
+| v2 | +36 casos de faltas com terra em 200–450 km | 91,8% em validação independente |
+| v3 | +80 casos em 450–600 km | 96,0% |
+| v4 | +450 casos (ênfase 200–600 km) | 98,7% combinado |
+| v5 | +80 casos sem terra em 15–80 km | 99,7% combinado |
+| v6 | Calibração de confiança (Platt/sigmoid) | 99,7% mantido; confiança média 75% → 88,7% |
+| v7 | Faixa de Rfault ampliada (100 Ω → 3000 Ω), validada sem retreino | 100% em faixa estendida |
+| v8 | Janela de detecção do classificador ampliada; guarda de segurança adicionada ao localizador | 99,7% mantido com t_cl livre |
+
+---
+
+Desenvolvimento de pesquisa acadêmica (PIBIC) — Universidade Federal do Piauí.
