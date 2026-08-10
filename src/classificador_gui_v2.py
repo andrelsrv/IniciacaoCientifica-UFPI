@@ -66,6 +66,8 @@ def _load_paths() -> tuple[Path, Path]:
     config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
     classifier = Path(config["classifier"])
     freeze = Path(config["freeze"])
+    if not classifier.is_absolute():
+        classifier = BASE_DIR / classifier
     if not freeze.is_absolute():
         freeze = BASE_DIR / freeze
     return classifier, freeze

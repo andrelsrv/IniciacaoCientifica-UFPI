@@ -13,10 +13,7 @@ from pathlib import Path
 from simulation_generator import SimulationParameters, generate_simulation
 
 TEMPLATE_ATP = Path(r"C:\RESULTPESQUISA\SIMULACAOUSADA.atp")
-BASE_MANIFEST = Path(
-    r"C:\Users\sams\Desktop\PEQUISA ACADEMICA\PesquisaAcademicaUFPI-20260801T132603Z-1-001"
-    r"\pilot\campaign_v4\manifest.csv"
-)
+BASE_MANIFEST = Path(r"C:\RESULTPESQUISA\campaign_v4\manifest.csv")
 AUGMENT_ROOT = Path(r"C:\RESULTPESQUISA\campaign_v4_augment")
 COMBINED_MANIFEST = AUGMENT_ROOT / "manifest_combined.csv"
 

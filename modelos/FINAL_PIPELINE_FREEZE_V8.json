@@ -45,7 +45,7 @@
     }
   ],
   "classifier": {
-    "path": "C:\\Users\\sams\\Desktop\\PEQUISAACADEMICA\\PesquisaAcademicaUFPIV2\\PesquisaAcademicaUFPI\\modelos\\robust_classifier_v5_calibrated.joblib",
+    "path": "modelos/robust_classifier_v5_calibrated.joblib",
     "sha256": "FEE3433C873245953F9DD8BD1D55A7CD06D17EA5F4AE4F441266C7F80400561C",
     "training": "Mesmo modelo base do v5 (1146 casos x 7 condicoes) + calibracao Platt/sigmoid sobre os 100 casos de validacao",
     "validated_distance_range_km": [
