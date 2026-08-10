@@ -11,7 +11,7 @@ import traceback
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier
 import joblib
-//teste gitt
+
 print("--- SISTEMA DE PROTEÇÃO: LOCALIZADOR E CLASSIFICADOR DE FALTAS (WAVELET DB4) ---")
 
 # ================= SELEÇÃO DO ARQUIVO =================
@@ -370,3 +370,5 @@ if df is not None:
 
 else:
     print(f"\n[X] FALHA AO LER ARQUIVO:\n{msg}")
+
+    /* ULTIMO TESTE DE GIT COMMIT V1 */
