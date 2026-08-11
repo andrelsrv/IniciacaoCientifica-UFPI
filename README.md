@@ -19,8 +19,8 @@ Projeto de Iniciação Científica (PIBIC) — Universidade Federal do Piauí
 
 ## Sumário
 
-- [Download rápido](#download-rápido)
 - [Visão geral](#visão-geral)
+- [Download rápido](#download-rápido)
 - [Resultados](#resultados)
 - [Estrutura do projeto](#estrutura-do-projeto)
 - [Como usar (produto final)](#como-usar-produto-final)
@@ -33,33 +33,6 @@ Projeto de Iniciação Científica (PIBIC) — Universidade Federal do Piauí
 - [Histórico de versões do modelo](#histórico-de-versões-do-modelo)
 
 ---
-
-## Download rápido
-
-<table>
-<tr>
-<td>
-
-**[⬇ Baixar a versão portátil (.zip, ~145 MB)](https://github.com/andrelsrv/PesquisaAcademicaUFPI/releases/latest/download/ClassificadorFaltasATP-v1.0-portable.zip)**
-
-1. Baixe e extraia o `.zip` em qualquer pasta.
-2. Abra a pasta `app/` e dê dois cliques em `ABRIR_CLASSIFICADOR.bat`.
-3. Pronto — nenhuma instalação necessária.
-
-</td>
-</tr>
-</table>
-
-> **Por que um `.zip` separado, e não o botão "Code → Download ZIP" do
-> GitHub?** O repositório usa Git LFS para os arquivos grandes (o `.exe` e
-> os modelos treinados). O download padrão do GitHub **não baixa o
-> conteúdo real desses arquivos** — só um ponteiro de texto — e o programa
-> não funcionaria. O `.zip` da seção [Releases](https://github.com/andrelsrv/PesquisaAcademicaUFPI/releases)
-> já vem com tudo resolvido e pronto para uso.
-
-Se você é desenvolvedor e quer o código-fonte com histórico completo, use
-`git clone` (requer [Git LFS](https://git-lfs.com/) instalado) — veja
-[Como usar (código-fonte)](#como-usar-código-fonte).
 
 ## Visão geral
 
@@ -79,8 +52,34 @@ transmissão (arquivo `.pl4` gerado pelo ATP), o pipeline:
    independente por *machine learning*.
 
 O produto final é um aplicativo gráfico standalone (`.exe`) que recebe um
-`.pl4` e devolve classe, distância, confiança e a forma de onda do evento —
-sem precisar de Python nem de nenhuma biblioteca instalada.
+`.pl4` e devolve classe, distância, confiança e a forma de onda do evento.
+
+## Download rápido
+
+<table>
+<tr>
+<td>
+
+**[⬇ Baixar a versão portátil (.zip, ~145 MB)](https://github.com/andrelsrv/PesquisaAcademicaUFPI/releases/latest/download/ClassificadorFaltasATP-v1.0-portable.zip)**
+
+1. Baixe e extraia o `.zip` em qualquer pasta.
+2. Abra a pasta `app/` e dê dois cliques em `ABRIR_CLASSIFICADOR.bat`.
+3. Pronto — não precisa de Python nem de nenhuma biblioteca instalada.
+
+</td>
+</tr>
+</table>
+
+> **Por que um `.zip` separado, e não o botão "Code → Download ZIP" do
+> GitHub?** O repositório usa Git LFS para os arquivos grandes (o `.exe` e
+> os modelos treinados). O download padrão do GitHub **não baixa o
+> conteúdo real desses arquivos** — só um ponteiro de texto — e o programa
+> não funcionaria. O `.zip` da seção [Releases](https://github.com/andrelsrv/PesquisaAcademicaUFPI/releases)
+> já vem com tudo resolvido e pronto para uso.
+
+Se você é desenvolvedor e quer o código-fonte com histórico completo, use
+`git clone` (requer [Git LFS](https://git-lfs.com/) instalado) — veja
+[Como usar (código-fonte)](#como-usar-código-fonte).
 
 ## Resultados
 
@@ -127,7 +126,7 @@ modelos/                   Artefatos congelados
 ├── FINAL_PIPELINE_FREEZE_V12.json           Congelamento ativo + histórico completo
 └── classificador_config.master.json
 
-docs/                       Relatórios e documentação de continuidade
+docs/                       Relatório parcial entregue anteriormente
 resultados_experimentos/    Saídas de experimentos (curva de aprendizado, comparação de modelos)
 legado/                      Abordagem anterior (wavelet/limiar), mantida como referência histórica
 tests/                       Suíte de testes automatizados
@@ -144,9 +143,6 @@ run_tests.py                 Executa toda a suíte (python run_tests.py)
 5. Veja o tipo de falta, a distância, a confiança e a forma de onda no
    gráfico.
 6. Use **Salvar resultado (JSON)…** para guardar o resultado.
-
-Não é necessário ter Python instalado, nem nenhuma biblioteca — o `.exe` é
-standalone e roda 100% offline no seu computador.
 
 > O Windows SmartScreen ou seu antivírus pode alertar na primeira execução
 > por ser um executável sem assinatura digital (comum em ferramentas
@@ -233,15 +229,9 @@ forma, pois é o componente validado com maior robustez.
 > **Para uso manual no ATPDraw**: se você gerar o caso manualmente pelo
 > ATPDraw (fora do pipeline Python), o `Tmax` do seu projeto também precisa
 > ser ajustado para 0,7s para que t_cl fora de ~100ms funcione
-> corretamente.
->
-> **Não aumente o Tmax além de 0,7s sem revalidar**: testes mostraram que o
-> solver ATP (`tpbig.exe`) corrompe silenciosamente os resultados acima de
-> ~800-900 mil passos de tempo (Tmax≈0,8-0,9s com o passo de 1µs usado
-> aqui) — não é degradação gradual, é uma quebra abrupta de precisão. Isso
-> não limita a cobertura real: como o ciclo de 60Hz se repete a cada
-> 16,67ms, qualquer ângulo de incidência já é amostrado várias vezes
-> dentro da janela atual de 0,025-0,675s.
+> corretamente. Não aumente o Tmax além disso sem revalidar: o solver ATP
+> corrompe resultados acima de ~800-900 mil passos de tempo (detalhes em
+> `modelos/FINAL_PIPELINE_FREEZE_V12.json`).
 
 `ABC-G` (trifásica-terra) não é uma classe suportada: testes de viabilidade
 mostraram que ela não é separável de `ABC` com confiabilidade estatística,
@@ -289,24 +279,14 @@ casos, validação de manifesto e localização por ondas viajantes.
 
 ## Histórico de versões do modelo
 
-Resumo da evolução do classificador e do localizador; detalhes completos
-em `modelos/FINAL_PIPELINE_FREEZE_V12.json`.
-
-| Versão | Mudança | Resultado |
-|---|---|---|
-| v1 | Linha de base — 500 casos, teste cego oficial | Macro-F1 100% (7 condições); localizador MAE 0,665 km |
-| v2 | +36 casos de faltas com terra em 200–450 km | 91,8% em validação independente |
-| v3 | +80 casos em 450–600 km | 96,0% |
-| v4 | +450 casos (ênfase 200–600 km) | 98,7% combinado |
-| v5 | +80 casos sem terra em 15–80 km | 99,7% combinado |
-| v6 | Calibração de confiança (Platt/sigmoid) | 99,7% mantido; confiança média 75% → 88,7% |
-| v7 | Faixa de Rfault ampliada (100 Ω → 3000 Ω), validada sem retreino | 100% em faixa estendida |
-| v8 | Janela de detecção do classificador ampliada; guarda de segurança adicionada ao localizador | 99,7% mantido com t_cl livre |
-| v9 | Corrigido bug de normalização no localizador (janela de baseline fixa → relativa ao início da simulação) | Erro fora da janela clássica caiu de 79-243km para 0,31km |
-| v9-batch | Validação em escala (280 casos, toda a faixa de parâmetros) | Classificação 99,64%; localização 96,1% conclusivo, 1,5% falso-conclusivo (risco residual documentado) |
-| v10 | Regressor de ML como checagem de sanidade independente do localizador | Falso-conclusivo cai de 1,49% para 0,38% (redução de ~4x) |
-| v11 | Tmax ampliado de 0,15s para 0,5s; janela de t_cl ampliada de 25-125ms para 25-475ms | 40 casos novos: classificação 100%, localização 92,5% conclusivo, 0 falso-conclusivos |
-| v12 | Descoberto e corrigido limite numérico do solver ATP; Tmax fixado em 0,7s (janela final 25-675ms) | 40 casos novos: classificação 100%, localização 97,5% conclusivo, MAE 3,16km |
+O modelo passou por 12 iterações (v1 a v12), evoluindo de uma linha de
+base com 500 casos (macro-F1 100% no teste cego oficial) até o estado
+atual: mais dados de treino em faixas antes fracas (curta distância,
+alta impedância, 450-600 km), calibração de confiança, correção de um
+bug de normalização no localizador, uma checagem de sanidade por ML para
+reduzir respostas falso-confiantes, e ampliação da janela de t_cl aceita
+de 30ms para 650ms. O changelog completo, com números de cada etapa e o
+motivo de cada mudança, está em `modelos/FINAL_PIPELINE_FREEZE_V12.json`.
 
 ---
 
