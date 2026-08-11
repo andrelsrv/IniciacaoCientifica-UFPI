@@ -182,12 +182,16 @@ produz corrente de neutro próxima de zero, com ou sem aterramento).
 - **Risco principal do localizador**: mesmo após a correção da janela de
   normalização, uma bateria de 280 casos cobrindo toda a faixa de
   parâmetros mostrou que ~1,4% dos casos (4/280) ainda recebem uma
-  distância marcada como conclusiva mas errada por 58-162 km. Não há
-  padrão identificado (ocorre com Rfault alto e baixo, t_cl clássico e no
-  limite da janela ampliada) nem um filtro adicional (testada a margem
-  entre o 1º e o 2º candidato de reflexão) que separe esses casos dos
-  corretos sem também rejeitar casos bons. Trate a distância reportada
-  como estimativa sujeita a esse risco residual, não como garantia.
+  distância marcada como conclusiva mas errada por 58-162 km. Foram
+  testados três filtros adicionais (margem entre candidatos, consenso
+  multiescala, consistência temporal entre terminais) e nenhum separa
+  esses casos dos corretos: nos casos ruins, os dois terminais e todas as
+  bandas de frequência concordam consistentemente na mesma reflexão
+  errada, o que indica ser uma reflexão física real (provável segundo
+  salto), não ruído de medição. Corrigir isso exigiria um método de
+  desambiguação de candidato diferente — fora do escopo atual. Trate a
+  distância reportada como estimativa sujeita a esse risco residual, não
+  como garantia.
 - Há uma confusão residual muito pontual entre `ABG` e `AB` em distâncias
   muito curtas (1 caso em 300 testados na v5); não foi reproduzida em 40
   casos novos testados na v9 — tratada como ruído estatístico, não um
