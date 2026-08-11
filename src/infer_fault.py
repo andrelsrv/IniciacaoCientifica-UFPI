@@ -21,9 +21,10 @@ from traveling_wave_localizer import TravelingWaveConfig
 # mesma janela de regime permanente relativa ao inicio da simulacao que
 # feature_extraction.py usa (ver BASELINE_START_S/END_S) — validado com
 # casos reais em t_cl=33ms e t_cl=117ms (erro de 0.31km em ambos, antes o
-# erro chegava a 79-243km). A janela segura acompanha agora a mesma faixa
-# do classificador.
-LOCATION_SAFE_EVENT_WINDOW_S = (0.025, 0.125)
+# erro chegava a 79-243km). A janela segura acompanha a mesma faixa de
+# busca do classificador (feature_extraction.SEARCH_START_S/END_S), que
+# por sua vez depende do Tmax do template ATP (0.5s a partir da v11).
+LOCATION_SAFE_EVENT_WINDOW_S = (0.025, 0.475)
 
 
 def _sha256(path: Path) -> str:

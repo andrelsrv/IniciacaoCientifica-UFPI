@@ -9,13 +9,17 @@ import numpy as np
 from signal_io import CANONICAL_CHANNELS, SignalData
 
 
-FEATURE_VERSION = "pilot_v2_flexible_window"
-# Janela de busca ampliada: cobre praticamente toda a simulacao de 150ms, em
-# vez de uma fatia fixa de 80-110ms. A linha de base (regime permanente) usa
-# um trecho bem no inicio, pois a fonte ja parte em regime (solucao fasorial
+FEATURE_VERSION = "pilot_v3_tmax500ms"
+# Janela de busca ampliada: cobre praticamente toda a simulacao, em vez de
+# uma fatia fixa de 80-110ms. A linha de base (regime permanente) usa um
+# trecho bem no inicio, pois a fonte ja parte em regime (solucao fasorial
 # como condicao inicial no ATP) — nao ha transitorio de partida a esperar.
+# Tmax do template ATP foi ampliado de 0.15s para 0.5s; a janela de busca
+# acompanha essa mudanca (mantendo a mesma folga de ~25ms antes do fim para
+# o calculo da janela pos-falta). Se o Tmax do seu .atp for diferente
+# (ex: 0.15s no template antigo), ajuste SEARCH_END_S = Tmax - 0.025.
 SEARCH_START_S = 0.025
-SEARCH_END_S = 0.125
+SEARCH_END_S = 0.475
 BASELINE_START_S = 0.005
 BASELINE_END_S = 0.020
 

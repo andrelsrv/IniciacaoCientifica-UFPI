@@ -19,11 +19,12 @@ class FeatureExtractionTests(unittest.TestCase):
         self.assertTrue(np.all(np.isfinite(result.values)))
         self.assertEqual(len(result.values), len(result.names))
         self.assertGreater(len(result.values), 50)
-        # O sinal sintetico e um degrau perfeitamente periodico (sem ruido);
-        # a comparacao ciclo-a-ciclo do detector enxerga o residuo um ciclo
-        # antes do degrau (0.09 - 1/60 ~= 0.0833s), que e o instante correto
-        # de deteccao para esse formato de sinal.
-        self.assertAlmostEqual(result.event_time_s, 0.08333, delta=0.001)
+        # O sinal sintetico tem so 150001 amostras (0.15s), mais curto que a
+        # SEARCH_END_S atual (0.475s, calibrada para o Tmax real de 0.5s do
+        # template ATP) — a busca fica limitada ao fim do sinal disponivel,
+        # o que agora captura o degrau real em ~0.09s (em vez do residuo um
+        # ciclo antes, que aparecia quando a janela de busca era mais curta).
+        self.assertAlmostEqual(result.event_time_s, 0.09, delta=0.001)
 
 
 if __name__ == "__main__":

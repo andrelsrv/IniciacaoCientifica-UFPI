@@ -82,7 +82,7 @@ src/                       Código-fonte Python (pipeline, treino, GUI)
 modelos/                   Artefatos congelados
 ├── robust_classifier_v5_calibrated.joblib   Classificador ativo
 ├── distance_sanity_regressor.joblib         Checagem de sanidade do localizador (ML)
-├── FINAL_PIPELINE_FREEZE_V10.json           Congelamento ativo + histórico completo
+├── FINAL_PIPELINE_FREEZE_V11.json           Congelamento ativo + histórico completo
 └── classificador_config.master.json
 
 docs/                       Relatórios e documentação de continuidade
@@ -120,7 +120,7 @@ Ou, para inferência direta em linha de comando:
 cd src
 python infer_fault.py "C:\caminho\novo.pl4" `
   --classifier "..\modelos\robust_classifier_v5_calibrated.joblib" `
-  --freeze "..\modelos\FINAL_PIPELINE_FREEZE_V10.json" `
+  --freeze "..\modelos\FINAL_PIPELINE_FREEZE_V11.json" `
   --output resultado.json
 ```
 
@@ -171,7 +171,15 @@ validado com maior robustez.
 | Localização | 15 – 600 km | teste cego oficial cobriu 15-450 km; 450-600 km foi revalidado informalmente após a correção da janela de normalização (v9) |
 | Resistência de falta (Rfault) | 0,01 – 3000 Ω | de curto franco até falta de alta impedância (vegetação/solo seco) |
 | Ângulo de incidência | 0° – 360° | a falta pode ocorrer em qualquer ponto do ciclo de 60 Hz |
-| Instante de fechamento (t_cl) — classificação e localização | 0,025 – 0,125 s | livre dentro da simulação; antes da v9 o localizador exigia 0,080-0,105 s por um bug de normalização, já corrigido |
+| Instante de fechamento (t_cl) — classificação e localização | 0,025 – 0,475 s | livre dentro da simulação (Tmax=0,5s no template ATP); antes da v9 o localizador exigia 0,080-0,105 s por um bug de normalização, já corrigido; janela ampliada de 0,025-0,125s para 0,025-0,475s na v11 |
+
+**Importante para uso manual no ATPDraw**: a ampliação de t_cl depende do
+`Tmax` da simulação ser 0,5s. Isso já está configurado no template usado
+pelos scripts Python (`simulation_generator.py`), mas se você gerar o
+caso manualmente pelo ATPDraw (fora do pipeline Python), o `Tmax` do seu
+projeto também precisa ser ajustado para 0,5s — caso contrário a
+simulação continua limitada a 0,15s e um t_cl acima de ~100ms pode não
+caber na janela de observação pós-falta.
 
 `ABC-G` (trifásica-terra) não é uma classe suportada: testes de viabilidade
 mostraram que ela não é separável de `ABC` com confiabilidade estatística,
@@ -236,6 +244,7 @@ Resumo da evolução do classificador; detalhes completos em
 | v9 | Corrigido bug de normalização no localizador (janela de baseline fixa → relativa ao início da simulação) | t_cl fora de 80-105ms: erro caiu de 79-243km para 0,31km; 500-600km: 0 falso-conclusivos em 30 casos, MAE 1,66km |
 | v9-batch | Validação em escala (280 casos, toda a faixa de parâmetros) | Classificação 99,64%; localização 96,1% conclusivo, MAE 2,61km, 1,5% falso-conclusivo entre os conclusivos (risco residual documentado) |
 | v10 | Regressor de ML como checagem de sanidade independente do localizador (estima distância pela atenuação do sinal, não pela correlação de reflexão) | Falso-conclusivo cai de 1,49% para 0,38% (redução de ~4x); cobertura cai de 96,1% para 94,3% (2 casos bons rejeitados à toa); MAE dos corretos melhora para 0,99km |
+| v11 | Tmax do template ATP ampliado de 0,15s para 0,5s; janela de t_cl ampliada de 25-125ms para 25-475ms; regressor de sanidade retreinado com casos cobrindo a faixa nova | 40 casos novos com t_cl uniforme em 25-475ms: classificação 100%, localização 92,5% conclusivo, 0 falso-conclusivos, MAE 0,99km |
 
 ---
 

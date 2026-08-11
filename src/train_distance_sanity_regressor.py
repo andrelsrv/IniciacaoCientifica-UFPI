@@ -29,24 +29,41 @@ OUTPUT_PATH = ROOT / "modelos" / "distance_sanity_regressor.joblib"
 case_files = glob.glob(SEARCH_ROOT + "/**/*.case.json", recursive=True)
 print(f"Encontrados {len(case_files)} arquivos case.json")
 
+sources: list[tuple[str, float]] = []
+for cf in case_files:
+    try:
+        meta = json.loads(Path(cf).read_text(encoding="utf-8"))
+        sources.append((meta["file_path"], meta["parameters"]["distance_km"]))
+    except Exception:
+        pass
+
+# Complementa com o lote t_cl=125-475ms (Tmax=0.5s), que nao usa case.json
+# (gerado via helper de baixo nivel, fora do pipeline oficial congelado).
+wide_tcl_manifest = Path(SEARCH_ROOT) / "wide_tcl_batch" / "manifest.json"
+if wide_tcl_manifest.exists():
+    wide_rows = json.loads(wide_tcl_manifest.read_text(encoding="utf-8"))
+    for pl4_path, fault_class, distance_km in wide_rows:
+        sources.append((pl4_path, distance_km))
+    print(f"+ {len(wide_rows)} casos do lote t_cl 125-475ms")
+
+print(f"Total de fontes: {len(sources)}")
+
 rows = []
 skipped = 0
 start = time.time()
-for i, cf in enumerate(case_files):
+for i, (file_path, distance_km) in enumerate(sources):
     try:
-        meta = json.loads(Path(cf).read_text(encoding="utf-8"))
-        pl4_path = Path(meta["file_path"])
-        distance_km = meta["parameters"]["distance_km"]
+        pl4_path = Path(file_path)
         if not pl4_path.exists():
             skipped += 1
             continue
         signals = read_canonical_pl4(pl4_path)
         features = extract_features(signals)
         rows.append((features.values, distance_km, str(pl4_path)))
-    except Exception as exc:
+    except Exception:
         skipped += 1
     if (i + 1) % 200 == 0:
-        print(f"{i + 1}/{len(case_files)} processados, {len(rows)} validos, {skipped} pulados, {time.time()-start:.0f}s")
+        print(f"{i + 1}/{len(sources)} processados, {len(rows)} validos, {skipped} pulados, {time.time()-start:.0f}s")
 
 print(f"\nTotal utilizavel: {len(rows)} casos ({skipped} pulados)")
 
