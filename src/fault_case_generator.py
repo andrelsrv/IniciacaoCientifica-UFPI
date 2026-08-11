@@ -50,7 +50,11 @@ class FaultParameters:
 
 
 def _format_field(value: float, width: int, decimals: int) -> str:
-    text = f"{value:.{decimals}f}".rstrip("0").rstrip(".")
+    # O ATP interpreta campos numericos de coluna fixa sem ponto decimal
+    # explicito usando uma posicao decimal implicita (ex.: "3000" e lido
+    # como 30.00, nao 3000). O ponto NUNCA pode ser removido, mesmo para
+    # valores inteiros -- so os zeros a direita do ponto sao compactaveis.
+    text = f"{value:.{decimals}f}".rstrip("0")
     if text.startswith("0."):
         text = text[1:]
     if len(text) > width:
