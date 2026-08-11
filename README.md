@@ -11,6 +11,7 @@ Projeto de Iniciação Científica (PIBIC) — Universidade Federal do Piauí
 [![Download](https://img.shields.io/badge/⬇%20Download-Vers%C3%A3o%20portátil%20(.zip)-2ea44f?style=for-the-badge)](https://github.com/andrelsrv/PesquisaAcademicaUFPI/releases/latest/download/ClassificadorFaltasATP-v1.0-portable.zip)
 [![Releases](https://img.shields.io/github/v/release/andrelsrv/PesquisaAcademicaUFPI?style=for-the-badge&label=vers%C3%A3o)](https://github.com/andrelsrv/PesquisaAcademicaUFPI/releases)
 [![Testes](https://img.shields.io/badge/testes-35%2F35%20passando-brightgreen?style=for-the-badge)](#testes-automatizados)
+[![Licença](https://img.shields.io/badge/licença-MIT-blue?style=for-the-badge)](LICENSE)
 
 </div>
 
