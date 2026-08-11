@@ -12,8 +12,6 @@ Projeto de Iniciação Científica (PIBIC) — Universidade Federal do Piauí
 [![Releases](https://img.shields.io/github/v/release/andrelsrv/PesquisaAcademicaUFPI?style=for-the-badge&label=vers%C3%A3o)](https://github.com/andrelsrv/PesquisaAcademicaUFPI/releases)
 [![Testes](https://img.shields.io/badge/testes-35%2F35%20passando-brightgreen?style=for-the-badge)](#testes-automatizados)
 
-*Não precisa instalar Python, nem nenhuma biblioteca — é só baixar e usar.*
-
 </div>
 
 ---
