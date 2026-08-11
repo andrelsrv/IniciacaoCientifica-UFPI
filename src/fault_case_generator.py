@@ -68,8 +68,21 @@ def _fault_network(fault_class: str) -> tuple[list[tuple[str, str]], list[tuple[
     """
     phases = FAULT_SWITCHES[fault_class]
     if fault_class in GROUNDED_FAULTS:
-        branches = [(FAULT_NODES[phase], "") for phase in phases]
-        switches = [(PHASE_NODES[phase], FAULT_NODES[phase]) for phase in phases]
+        if len(phases) == 1:
+            phase = phases[0]
+            branches = [(FAULT_NODES[phase], "")]
+            switches = [(PHASE_NODES[phase], FAULT_NODES[phase])]
+        else:
+            # Falta dupla fase-terra (ABG/BCG/CAG): no modelo classico de
+            # componentes simetricas (fault LLG) as fases envolvidas ficam
+            # curto-circuitadas entre si no ponto da falta, e esse ponto
+            # comum tem uma unica impedancia ate a terra -- mesma topologia
+            # usada em desenhos manuais no ATPDraw. A versao anterior dava a
+            # cada fase seu proprio resistor independente ate a terra, sem
+            # ligar as fases entre si, o que diverge do modelo padrao.
+            shared_node = FAULT_NODES[phases[0]]
+            branches = [(shared_node, "")]
+            switches = [(PHASE_NODES[phase], shared_node) for phase in phases]
     elif fault_class == "ABC":
         branches = [(FAULT_NODES[phase], STAR_NODE) for phase in phases]
         switches = [(PHASE_NODES[phase], FAULT_NODES[phase]) for phase in phases]
