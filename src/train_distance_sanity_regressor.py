@@ -37,14 +37,22 @@ for cf in case_files:
     except Exception:
         pass
 
-# Complementa com o lote t_cl=125-475ms (Tmax=0.5s), que nao usa case.json
-# (gerado via helper de baixo nivel, fora do pipeline oficial congelado).
-wide_tcl_manifest = Path(SEARCH_ROOT) / "wide_tcl_batch" / "manifest.json"
-if wide_tcl_manifest.exists():
-    wide_rows = json.loads(wide_tcl_manifest.read_text(encoding="utf-8"))
-    for pl4_path, fault_class, distance_km in wide_rows:
-        sources.append((pl4_path, distance_km))
-    print(f"+ {len(wide_rows)} casos do lote t_cl 125-475ms")
+# Complementa com os lotes t_cl=125-475ms e t_cl=475-675ms, que nao usam
+# case.json (gerados via helper de baixo nivel, fora do pipeline oficial
+# congelado). NAO inclui wide_tcl_batch2 (t_cl 475-975ms, Tmax=1.0s):
+# esse lote foi gerado com Tmax acima do limite seguro do solver ATP
+# (corrupcao numerica confirmada acima de ~800 mil passos de tempo) e foi
+# descartado.
+for batch_name, batch_range in (
+    ("wide_tcl_batch", "125-475ms"),
+    ("wide_tcl_batch3", "475-675ms"),
+):
+    wide_tcl_manifest = Path(SEARCH_ROOT) / batch_name / "manifest.json"
+    if wide_tcl_manifest.exists():
+        wide_rows = json.loads(wide_tcl_manifest.read_text(encoding="utf-8"))
+        for pl4_path, fault_class, distance_km in wide_rows:
+            sources.append((pl4_path, distance_km))
+        print(f"+ {len(wide_rows)} casos do lote t_cl {batch_range}")
 
 print(f"Total de fontes: {len(sources)}")
 

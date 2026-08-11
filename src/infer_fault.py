@@ -23,8 +23,10 @@ from traveling_wave_localizer import TravelingWaveConfig
 # casos reais em t_cl=33ms e t_cl=117ms (erro de 0.31km em ambos, antes o
 # erro chegava a 79-243km). A janela segura acompanha a mesma faixa de
 # busca do classificador (feature_extraction.SEARCH_START_S/END_S), que
-# por sua vez depende do Tmax do template ATP (0.5s a partir da v11).
-LOCATION_SAFE_EVENT_WINDOW_S = (0.025, 0.475)
+# por sua vez depende do Tmax do template ATP (0.7s a partir da v12 —
+# testado ate 1.0s, mas o solver ATP corrompe resultados acima de ~800 mil
+# passos de tempo; 0.7s fica com margem segura abaixo desse limite).
+LOCATION_SAFE_EVENT_WINDOW_S = (0.025, 0.675)
 
 
 def _sha256(path: Path) -> str:

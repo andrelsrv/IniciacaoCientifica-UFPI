@@ -9,17 +9,21 @@ import numpy as np
 from signal_io import CANONICAL_CHANNELS, SignalData
 
 
-FEATURE_VERSION = "pilot_v3_tmax500ms"
+FEATURE_VERSION = "pilot_v5_tmax700ms"
 # Janela de busca ampliada: cobre praticamente toda a simulacao, em vez de
 # uma fatia fixa de 80-110ms. A linha de base (regime permanente) usa um
 # trecho bem no inicio, pois a fonte ja parte em regime (solucao fasorial
 # como condicao inicial no ATP) — nao ha transitorio de partida a esperar.
-# Tmax do template ATP foi ampliado de 0.15s para 0.5s; a janela de busca
-# acompanha essa mudanca (mantendo a mesma folga de ~25ms antes do fim para
-# o calculo da janela pos-falta). Se o Tmax do seu .atp for diferente
-# (ex: 0.15s no template antigo), ajuste SEARCH_END_S = Tmax - 0.025.
+# Tmax do template ATP e 0.7s (700 mil passos de tempo com dt=1us). O
+# solver ATP (tpbig.exe) tem um limite numerico proprio: um teste dedicado
+# mostrou precisao correta ate 800 mil passos e corrompida a partir de 900
+# mil (mesmo caso, so mudando Tmax, erro de localizacao pulou de <1km para
+# 351km). 0.7s fica com boa margem abaixo desse limite. NAO AUMENTAR o
+# Tmax sem revalidar esse limite do solver. A janela de busca acompanha o
+# Tmax (folga de ~25ms antes do fim). Se o Tmax do seu .atp for diferente,
+# ajuste SEARCH_END_S = Tmax - 0.025.
 SEARCH_START_S = 0.025
-SEARCH_END_S = 0.475
+SEARCH_END_S = 0.675
 BASELINE_START_S = 0.005
 BASELINE_END_S = 0.020
 
