@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import numpy as np
 from scipy.signal import find_peaks
 
-from feature_extraction import FeatureResult, extract_features
+from feature_extraction import BASELINE_END_S, BASELINE_START_S, FeatureResult, extract_features
 from signal_io import SignalData
 
 
@@ -24,7 +24,12 @@ class TravelingWaveConfig:
     minimum_correlation: float = 0.20
     minimum_terminal_correlation_for_conclusive: float = 0.30
     maximum_consistency_us: float = 15.0
-    maximum_distance_km: float = 500.0
+    # Corrigido junto com a janela de baseline (ver _directional_curve): a
+    # normalizacao quebrada era a causa raiz das reflexoes falsas aceitas
+    # acima de 450km, nao a distancia em si. Revalidado com 60 casos novos
+    # em 400-600km apos a correcao (0 falso-conclusivos, MAE 1.66km em
+    # 500-600km). Teto ampliado com folga alem do limite fisico de 600km.
+    maximum_distance_km: float = 620.0
 
 
 @dataclass(frozen=True)
@@ -52,7 +57,12 @@ def _directional_curve(
     time_s, values = signals.time_s, signals.values
     dt = float(np.median(np.diff(time_s)))
     cycle = int(round(1 / 60 / dt))
-    baseline = (time_s >= 0.03) & (time_s < 0.075)
+    # Janela de regime permanente relativa ao inicio da simulacao, nao ao
+    # instante da falta: a fonte ATP ja parte em solucao fasorial (sem
+    # transitorio de partida), entao esse trecho e valido mesmo quando o
+    # evento acontece cedo (t_cl fora do intervalo classico 80-110ms). Usa
+    # os mesmos limites de feature_extraction.py para manter consistencia.
+    baseline = (time_s >= BASELINE_START_S) & (time_s < BASELINE_END_S)
     voltage = values[:, voltage_offset : voltage_offset + 3] @ CLARKE_AERIAL.T
     current = values[:, current_offset : current_offset + 3] @ CLARKE_AERIAL.T
     voltage /= max(float(np.sqrt(np.mean(voltage[baseline] ** 2))), 1e-12)

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from feature_extraction import BASELINE_END_S, BASELINE_START_S
 from multiscale_localizer import MultiscaleConfig, MultiscaleLocationResult, locate_multiscale
 from signal_io import SignalData
 from traveling_wave_localizer import LocationResult, TravelingWaveConfig, locate
@@ -22,7 +23,10 @@ class AdaptiveLocationResult:
 
 
 def estimate_prefault_snr_db(signals: SignalData) -> float:
-    mask = (signals.time_s >= 0.02) & (signals.time_s < 0.075)
+    # Mesma janela de regime permanente do localizador (relativa ao inicio
+    # da simulacao, nao a um t_cl fixo) para evitar medir SNR sobre um
+    # trecho que ja contem o transitorio da falta.
+    mask = (signals.time_s >= BASELINE_START_S) & (signals.time_s < BASELINE_END_S)
     time = signals.time_s[mask]
     values = signals.values[mask]
     design = np.column_stack((
