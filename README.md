@@ -1,15 +1,26 @@
-# Classificador e Localizador de Faltas em Linhas de Transmissão
+<div align="center">
 
-Pipeline de **detecção, classificação e localização de faltas** em linhas de
-transmissão de energia, a partir de simulações eletromagnéticas transitórias
-(ATP/ATPDraw), usando extração de atributos físicos e *machine learning*.
+# ⚡ Classificador e Localizador de Faltas em Linhas de Transmissão
 
-Projeto de Iniciação Científica (PIBIC) — Universidade Federal do Piauí.
+**Detecção, classificação e localização de faltas elétricas** a partir de
+simulações eletromagnéticas transitórias (ATP/ATPDraw), usando extração de
+atributos físicos e *machine learning*.
+
+Projeto de Iniciação Científica (PIBIC) — Universidade Federal do Piauí
+
+[![Download](https://img.shields.io/badge/⬇%20Download-Vers%C3%A3o%20portátil%20(.zip)-2ea44f?style=for-the-badge)](https://github.com/andrelsrv/PesquisaAcademicaUFPI/releases/latest/download/ClassificadorFaltasATP-v1.0-portable.zip)
+[![Releases](https://img.shields.io/github/v/release/andrelsrv/PesquisaAcademicaUFPI?style=for-the-badge&label=vers%C3%A3o)](https://github.com/andrelsrv/PesquisaAcademicaUFPI/releases)
+[![Testes](https://img.shields.io/badge/testes-35%2F35%20passando-brightgreen?style=for-the-badge)](#testes-automatizados)
+
+*Não precisa instalar Python, nem nenhuma biblioteca — é só baixar e usar.*
+
+</div>
 
 ---
 
 ## Sumário
 
+- [Download rápido](#download-rápido)
 - [Visão geral](#visão-geral)
 - [Resultados](#resultados)
 - [Estrutura do projeto](#estrutura-do-projeto)
@@ -18,10 +29,38 @@ Projeto de Iniciação Científica (PIBIC) — Universidade Federal do Piauí.
 - [Como funciona](#como-funciona)
 - [Faixas de parâmetros validadas](#faixas-de-parâmetros-validadas)
 - [Limitações conhecidas](#limitações-conhecidas)
+- [Privacidade e segurança](#privacidade-e-segurança)
 - [Testes automatizados](#testes-automatizados)
 - [Histórico de versões do modelo](#histórico-de-versões-do-modelo)
 
 ---
+
+## Download rápido
+
+<table>
+<tr>
+<td>
+
+**[⬇ Baixar a versão portátil (.zip, ~145 MB)](https://github.com/andrelsrv/PesquisaAcademicaUFPI/releases/latest/download/ClassificadorFaltasATP-v1.0-portable.zip)**
+
+1. Baixe e extraia o `.zip` em qualquer pasta.
+2. Abra a pasta `app/` e dê dois cliques em `ABRIR_CLASSIFICADOR.bat`.
+3. Pronto — nenhuma instalação necessária.
+
+</td>
+</tr>
+</table>
+
+> **Por que um `.zip` separado, e não o botão "Code → Download ZIP" do
+> GitHub?** O repositório usa Git LFS para os arquivos grandes (o `.exe` e
+> os modelos treinados). O download padrão do GitHub **não baixa o
+> conteúdo real desses arquivos** — só um ponteiro de texto — e o programa
+> não funcionaria. O `.zip` da seção [Releases](https://github.com/andrelsrv/PesquisaAcademicaUFPI/releases)
+> já vem com tudo resolvido e pronto para uso.
+
+Se você é desenvolvedor e quer o código-fonte com histórico completo, use
+`git clone` (requer [Git LFS](https://git-lfs.com/) instalado) — veja
+[Como usar (código-fonte)](#como-usar-código-fonte).
 
 ## Visão geral
 
@@ -37,26 +76,29 @@ transmissão (arquivo `.pl4` gerado pelo ATP), o pipeline:
    simétricas, degraus transitórios).
 3. **Localiza** a distância da falta a partir do terminal local por
    correlação de ondas viajantes (frente incidente vs. reflexão), com
-   verificação cruzada entre os dois terminais.
+   verificação cruzada entre os dois terminais e uma checagem de sanidade
+   independente por *machine learning*.
 
-O produto final é um aplicativo gráfico standalone (`.exe`, não requer
-Python instalado) que recebe um `.pl4` e devolve classe, distância,
-confiança e a forma de onda do evento.
+O produto final é um aplicativo gráfico standalone (`.exe`) que recebe um
+`.pl4` e devolve classe, distância, confiança e a forma de onda do evento —
+sem precisar de Python nem de nenhuma biblioteca instalada.
 
 ## Resultados
 
 | Etapa | Métrica | Valor |
 |---|---|---|
-| Classificação — teste cego oficial (70 casos, 7 condições) | Macro-F1 / acurácia | 100% |
-| Classificação — validação independente acumulada (300 casos) | Acurácia | 99,7% |
+| Classificação — teste cego oficial (70 casos, 7 condições) | Macro-F1 / acurácia | **100%** |
+| Classificação — validação independente acumulada (300+ casos) | Acurácia | **99,6%+** |
 | Localização — teste cego oficial (condição ideal, 15-450 km) | MAE / mediana / P95 | 0,665 km / 0,358 km / 2,834 km |
-| Localização — revalidação informal 500-600 km (após correção da janela de normalização) | MAE / máximo | 1,66 km / 7,12 km |
-| Validação em escala (280 casos, toda a faixa 15-600 km/Rfault/ângulo/t_cl) | Classificação / localização | 99,64% / 96,1% conclusivo, MAE 2,61 km, **1,5% falso-conclusivo entre os conclusivos** |
+| Localização — validação em escala (280 casos, toda a faixa de parâmetros) | Cobertura / MAE | 96,1% conclusivo / 2,61 km |
+| Localização — após checagem de sanidade por ML | Falso-conclusivo | 1,49% → **0,38%** dos casos conclusivos |
 | Confiança média das árvores (após calibração Platt/sigmoid) | — | ~88,7% |
 
 Todos os números de validação independente vêm de lotes gerados **depois**
 do treino, nunca reaproveitados como dado de treino (auditoria automática de
-vazamento em `src/manifest.py`).
+vazamento em `src/manifest.py`). Detalhes completos, incluindo casos que
+falharam, estão em `resultados_experimentos/` e no histórico de versões
+abaixo.
 
 ## Estrutura do projeto
 
@@ -73,6 +115,7 @@ src/                       Código-fonte Python (pipeline, treino, GUI)
 ├── pl4_reader.py / signal_io.py  Leitura de arquivos .pl4 / .adf
 ├── traveling_wave_localizer.py   Localização por correlação de ondas viajantes
 ├── adaptive_localizer.py         Localização multi-banda com verificação de SNR
+├── train_distance_sanity_regressor.py  Treino da checagem de sanidade (ML)
 ├── fault_case_generator.py       Geração de casos de falta no ATP
 ├── simulation_generator.py       Geração e execução de simulações ATP
 ├── manifest.py                    Validação e auditoria anti-vazamento do manifesto
@@ -94,22 +137,33 @@ run_tests.py                 Executa toda a suíte (python run_tests.py)
 
 ## Como usar (produto final)
 
-1. Dê dois cliques em `app/ABRIR_CLASSIFICADOR.bat` (ou direto em
+1. [Baixe o `.zip` portátil](#download-rápido) e extraia em qualquer pasta.
+2. Dê dois cliques em `app/ABRIR_CLASSIFICADOR.bat` (ou direto em
    `ClassificadorFaltasATP.exe`).
-2. Clique em **Escolher PL4…** e selecione o arquivo gerado pelo ATPDraw.
-3. Clique em **Analisar**.
-4. Veja o tipo de falta, a distância, a confiança e a forma de onda no
+3. Clique em **Escolher PL4…** e selecione o arquivo gerado pelo ATPDraw.
+4. Clique em **Analisar**.
+5. Veja o tipo de falta, a distância, a confiança e a forma de onda no
    gráfico.
-5. Use **Salvar resultado (JSON)…** para guardar o resultado.
+6. Use **Salvar resultado (JSON)…** para guardar o resultado.
 
-Não é necessário ter Python instalado — o `.exe` é standalone.
+Não é necessário ter Python instalado, nem nenhuma biblioteca — o `.exe` é
+standalone e roda 100% offline no seu computador.
+
+> O Windows SmartScreen ou seu antivírus pode alertar na primeira execução
+> por ser um executável sem assinatura digital (comum em ferramentas
+> acadêmicas/independentes). Clique em "Mais informações → Executar assim
+> mesmo". O código-fonte completo está neste repositório para quem quiser
+> auditar antes de rodar.
 
 ## Como usar (código-fonte)
 
-Requer Python 3.11+ e as dependências em uso pelo projeto (`scikit-learn`,
-`numpy`, `scipy`, `joblib`, `matplotlib`).
+Requer Python 3.11+, [Git LFS](https://git-lfs.com/) (para clonar os
+arquivos grandes) e as dependências do projeto (`scikit-learn`, `numpy`,
+`scipy`, `joblib`, `matplotlib`).
 
 ```powershell
+git clone https://github.com/andrelsrv/PesquisaAcademicaUFPI.git
+cd PesquisaAcademicaUFPI
 cd src
 python classificador_gui_v2.py
 ```
@@ -157,36 +211,38 @@ frequência real de acerto.
 
 A distância é obtida por correlação entre a frente de onda incidente e sua
 reflexão, nos componentes aéreos de Clarke (transformação modal alfa/beta),
-com verificação cruzada de consistência entre os dois terminais. Abaixo de
-um SNR estimado de 50 dB, ou fora da janela temporal em que o método foi
-validado, a localização é bloqueada e reportada como inconclusiva — a
-classificação permanece disponível de qualquer forma, pois é o componente
-validado com maior robustez.
+com verificação cruzada de consistência entre os dois terminais. Um
+segundo modelo de *machine learning* (`RandomForestRegressor`), treinado
+para estimar a distância a partir da atenuação do sinal — um princípio
+físico independente da correlação de reflexão — atua como checagem de
+sanidade cruzada: se as duas estimativas discordarem muito, o resultado
+vira inconclusivo em vez de arriscar uma resposta errada. Abaixo de um SNR
+estimado de 50 dB, ou fora da janela temporal validada, a localização
+também é bloqueada. A classificação permanece disponível de qualquer
+forma, pois é o componente validado com maior robustez.
 
 ## Faixas de parâmetros validadas
 
 | Parâmetro | Faixa | Justificativa |
 |---|---|---|
 | Classificação (10 classes) | 15 – 600 km | limite físico usual de linha CA sem compensação série |
-| Localização | 15 – 600 km | teste cego oficial cobriu 15-450 km; 450-600 km foi revalidado informalmente após a correção da janela de normalização (v9) |
+| Localização | 15 – 600 km | teste cego oficial cobriu 15-450 km; 450-600 km revalidado informalmente |
 | Resistência de falta (Rfault) | 0,01 – 3000 Ω | de curto franco até falta de alta impedância (vegetação/solo seco) |
 | Ângulo de incidência | 0° – 360° | a falta pode ocorrer em qualquer ponto do ciclo de 60 Hz |
-| Instante de fechamento (t_cl) — classificação e localização | 0,025 – 0,675 s | livre dentro da simulação (Tmax=0,7s no template ATP); antes da v9 o localizador exigia 0,080-0,105 s por um bug de normalização, já corrigido; janela ampliada em v11 e v12. Tmax não pode subir mais sem revalidar — acima de ~800 mil passos de tempo (Tmax≈0,8-0,9s) o solver ATP corrompe os resultados |
+| Instante de fechamento (t_cl) | 0,025 – 0,675 s | livre dentro da simulação (Tmax=0,7s no template ATP) |
 
-**Importante para uso manual no ATPDraw**: a ampliação de t_cl depende do
-`Tmax` da simulação ser 0,7s. Isso já está configurado no template usado
-pelos scripts Python (`simulation_generator.py`), mas se você gerar o
-caso manualmente pelo ATPDraw (fora do pipeline Python), o `Tmax` do seu
-projeto também precisa ser ajustado para 0,7s — caso contrário a
-simulação continua limitada ao Tmax antigo e um t_cl acima de ~100ms pode
-não caber na janela de observação pós-falta.
-
-**Não aumente o Tmax além de 0,7s sem revalidar**: testamos até 1,0s e
-descobrimos que o solver ATP (`tpbig.exe`) corrompe silenciosamente os
-resultados acima de ~800-900 mil passos de tempo (Tmax≈0,8-0,9s com o
-passo de 1µs usado aqui) — não é degradação gradual, é uma quebra abrupta
-de precisão. 0,7s foi escolhido com margem de segurança abaixo desse
-limite.
+> **Para uso manual no ATPDraw**: se você gerar o caso manualmente pelo
+> ATPDraw (fora do pipeline Python), o `Tmax` do seu projeto também precisa
+> ser ajustado para 0,7s para que t_cl fora de ~100ms funcione
+> corretamente.
+>
+> **Não aumente o Tmax além de 0,7s sem revalidar**: testes mostraram que o
+> solver ATP (`tpbig.exe`) corrompe silenciosamente os resultados acima de
+> ~800-900 mil passos de tempo (Tmax≈0,8-0,9s com o passo de 1µs usado
+> aqui) — não é degradação gradual, é uma quebra abrupta de precisão. Isso
+> não limita a cobertura real: como o ciclo de 60Hz se repete a cada
+> 16,67ms, qualquer ângulo de incidência já é amostrado várias vezes
+> dentro da janela atual de 0,025-0,675s.
 
 `ABC-G` (trifásica-terra) não é uma classe suportada: testes de viabilidade
 mostraram que ela não é separável de `ABC` com confiabilidade estatística,
@@ -195,37 +251,33 @@ produz corrente de neutro próxima de zero, com ou sem aterramento).
 
 ## Limitações conhecidas
 
-- **Risco residual do localizador (reduzido, não eliminado)**: mesmo após
-  a correção da janela de normalização, uma bateria de 280 casos mostrou
-  que ~1,5% dos casos conclusivos ainda recebiam uma distância errada com
-  falsa confiança (erro de 58-162 km). Três filtros baseados no próprio
-  sinal de reflexão (margem entre candidatos, consenso multiescala,
-  consistência entre terminais) não resolveram isso — nos casos ruins, os
-  dois terminais concordam consistentemente na mesma reflexão errada
-  (provável segundo salto), então não é ruído de medição. A solução foi
-  adicionar uma **checagem de sanidade por machine learning**: um
-  `RandomForestRegressor` estima a distância pela atenuação do sinal (um
-  princípio físico independente da correlação de reflexão); quando as
-  duas estimativas discordam por mais de 100 km, o resultado vira
-  inconclusivo em vez de reportado com confiança falsa. Isso reduziu a
-  taxa de falso-conclusivo de 1,49% para 0,38% dos casos conclusivos, ao
-  custo de perder ~2% de cobertura (casos corretos ocasionalmente
-  rejeitados à toa). O risco não foi eliminado — trate a distância
-  reportada como estimativa, não como garantia absoluta.
+- **Risco residual do localizador (reduzido, não eliminado)**: mesmo com a
+  checagem de sanidade por ML, ~0,4% dos casos conclusivos ainda podem
+  receber uma distância errada com confiança falsa (a taxa antes dessa
+  proteção era ~1,5%). Não há um filtro conhecido que elimine esse risco
+  por completo — trate a distância reportada como uma estimativa, não
+  como garantia absoluta.
 - Há uma confusão residual muito pontual entre `ABG` e `AB` em distâncias
-  muito curtas (1 caso em 300 testados na v5); não foi reproduzida em 40
-  casos novos testados na v9 — tratada como ruído estatístico, não um
-  padrão sistemático corrigível.
-- As validações incrementais (v2 em diante) são lotes informais pós-treino;
-  apenas o teste cego oficial (v1) segue metodologia de campanha cega
-  completa com splits bloqueados antes do treino.
-- A faixa 600-620 km do localizador é apenas folga técnica no teto de busca
-  e não foi validada com casos reais.
+  muito curtas (1 caso em 300 testados originalmente); não reproduzida em
+  testes posteriores — tratada como ruído estatístico, não um padrão
+  sistemático corrigível.
+- As validações incrementais são lotes informais pós-treino; apenas o
+  teste cego oficial (v1) segue metodologia de campanha cega completa com
+  splits bloqueados antes do treino.
+- A faixa 600-620 km do localizador é apenas folga técnica no teto de
+  busca e não foi validada com casos reais.
 
-Duas limitações documentadas em versões anteriores (localização bloqueada
-fora de 80-105 ms de fechamento de falta, e reflexões falsas aceitas acima
-de 450 km) tinham a mesma causa raiz — uma janela de normalização presa ao
-instante clássico de falta — corrigida na v9 (ver histórico abaixo).
+## Privacidade e segurança
+
+- O aplicativo roda **inteiramente offline** — não envia dados pela
+  internet, não coleta telemetria, não faz nenhuma requisição de rede.
+- Todo o processamento (leitura do `.pl4`, classificação, localização)
+  acontece localmente na sua máquina.
+- O repositório não contém credenciais, chaves de API, tokens, nem dados
+  pessoais — apenas código-fonte, modelos treinados e resultados de
+  experimentos com dados simulados.
+- O código-fonte completo está disponível para auditoria; nada no `.exe`
+  faz algo que o código em `src/` não mostre explicitamente.
 
 ## Testes automatizados
 
@@ -233,10 +285,13 @@ instante clássico de falta — corrigida na v9 (ver histórico abaixo).
 python run_tests.py
 ```
 
+35 testes cobrindo extração de atributos, leitura de arquivos, geração de
+casos, validação de manifesto e localização por ondas viajantes.
+
 ## Histórico de versões do modelo
 
-Resumo da evolução do classificador; detalhes completos em
-`modelos/FINAL_PIPELINE_FREEZE_V8.json` e `docs/RELATORIO_FINAL.md`.
+Resumo da evolução do classificador e do localizador; detalhes completos
+em `modelos/FINAL_PIPELINE_FREEZE_V12.json`.
 
 | Versão | Mudança | Resultado |
 |---|---|---|
@@ -248,12 +303,16 @@ Resumo da evolução do classificador; detalhes completos em
 | v6 | Calibração de confiança (Platt/sigmoid) | 99,7% mantido; confiança média 75% → 88,7% |
 | v7 | Faixa de Rfault ampliada (100 Ω → 3000 Ω), validada sem retreino | 100% em faixa estendida |
 | v8 | Janela de detecção do classificador ampliada; guarda de segurança adicionada ao localizador | 99,7% mantido com t_cl livre |
-| v9 | Corrigido bug de normalização no localizador (janela de baseline fixa → relativa ao início da simulação) | t_cl fora de 80-105ms: erro caiu de 79-243km para 0,31km; 500-600km: 0 falso-conclusivos em 30 casos, MAE 1,66km |
-| v9-batch | Validação em escala (280 casos, toda a faixa de parâmetros) | Classificação 99,64%; localização 96,1% conclusivo, MAE 2,61km, 1,5% falso-conclusivo entre os conclusivos (risco residual documentado) |
-| v10 | Regressor de ML como checagem de sanidade independente do localizador (estima distância pela atenuação do sinal, não pela correlação de reflexão) | Falso-conclusivo cai de 1,49% para 0,38% (redução de ~4x); cobertura cai de 96,1% para 94,3% (2 casos bons rejeitados à toa); MAE dos corretos melhora para 0,99km |
-| v11 | Tmax do template ATP ampliado de 0,15s para 0,5s; janela de t_cl ampliada de 25-125ms para 25-475ms; regressor de sanidade retreinado com casos cobrindo a faixa nova | 40 casos novos com t_cl uniforme em 25-475ms: classificação 100%, localização 92,5% conclusivo, 0 falso-conclusivos, MAE 0,99km |
-| v12 | Descoberto limite numérico do solver ATP: acima de ~800-900 mil passos de tempo (Tmax≈0,8-0,9s) a precisão corrompe abruptamente. Tmax fixado em 0,7s (700 mil passos, com margem); janela de t_cl final 25-675ms; regressor de sanidade retreinado sem os dados contaminados por Tmax=1,0s | 40 casos novos com t_cl uniforme em 25-675ms: classificação 100%, localização 97,5% conclusivo, 1 falso-conclusivo (2,5%, dentro do risco residual já conhecido), MAE 3,16km |
+| v9 | Corrigido bug de normalização no localizador (janela de baseline fixa → relativa ao início da simulação) | Erro fora da janela clássica caiu de 79-243km para 0,31km |
+| v9-batch | Validação em escala (280 casos, toda a faixa de parâmetros) | Classificação 99,64%; localização 96,1% conclusivo, 1,5% falso-conclusivo (risco residual documentado) |
+| v10 | Regressor de ML como checagem de sanidade independente do localizador | Falso-conclusivo cai de 1,49% para 0,38% (redução de ~4x) |
+| v11 | Tmax ampliado de 0,15s para 0,5s; janela de t_cl ampliada de 25-125ms para 25-475ms | 40 casos novos: classificação 100%, localização 92,5% conclusivo, 0 falso-conclusivos |
+| v12 | Descoberto e corrigido limite numérico do solver ATP; Tmax fixado em 0,7s (janela final 25-675ms) | 40 casos novos: classificação 100%, localização 97,5% conclusivo, MAE 3,16km |
 
 ---
 
+<div align="center">
+
 Desenvolvimento de pesquisa acadêmica (PIBIC) — Universidade Federal do Piauí.
+
+</div>

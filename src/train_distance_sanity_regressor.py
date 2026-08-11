@@ -11,7 +11,7 @@ import sys
 import time
 from pathlib import Path
 
-ROOT = Path(r"C:\Users\sams\Desktop\PEQUISAACADEMICA\PesquisaAcademicaUFPIV2\PesquisaAcademicaUFPI")
+ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
 import joblib
