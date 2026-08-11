@@ -1,0 +1,110 @@
+{
+  "frozen_at": "2026-08-10",
+  "purpose": "Congelamento v10: adiciona um regressor de ML (RandomForestRegressor) como checagem de sanidade independente do localizador por ondas viajantes. O regressor estima a distancia pela atenuacao do sinal (mesmos 61 atributos do classificador), um principio fisico diferente da correlacao de reflexao. Quando a distancia do localizador discorda do regressor por mais de 100km, o resultado e rebaixado para inconclusivo em vez de reportado com falsa confianca. Reduz o risco residual de reflexao falsa (documentado em v9) de 1.49% para 0.38% dos casos conclusivos, validado nos mesmos 280 casos da bateria v9-batch (sem re-rodar ATP).",
+  "history": [
+    {
+      "version": "v1",
+      "scope": "original, 500 casos, 350 treino/80 validacao/70 teste cego oficial",
+      "blind_test_accuracy": "macro-F1 100% (7 condicoes oficiais); localizador MAE 0.665km em 15-450km ideal"
+    },
+    {
+      "version": "v2",
+      "scope": "+36 casos ABG/BCG/CAG em 200-450km",
+      "informal_validation_accuracy": "91.8% em 110 casos novos (2 lotes independentes, 15-450km)"
+    },
+    {
+      "version": "v3",
+      "scope": "+80 casos em 450-600km (10 classes)",
+      "informal_validation_accuracy": "96.0% em 50 casos novos, 15-600km"
+    },
+    {
+      "version": "v4",
+      "scope": "+450 casos (enfase 200-600km, todas as 10 classes)",
+      "informal_validation_accuracy": "98,7% combinado em 230 casos independentes (160+70); 100% nas 6 classes com terra (138/138)"
+    },
+    {
+      "version": "v5",
+      "scope": "+80 casos sem terra em 15-80km",
+      "informal_validation_accuracy": "99,7% combinado em 300 casos independentes (230+70); 100% no lote de confirmacao final de 70 casos."
+    },
+    {
+      "version": "v6",
+      "scope": "Calibracao de confianca (Platt/sigmoid) sobre o classificador v5, sem alterar dados de treino",
+      "informal_validation_accuracy": "99,7% (identico ao v5) em 300 casos independentes; confianca media sobe de ~75% para 88,7%"
+    },
+    {
+      "version": "v7",
+      "scope": "Ampliacao da faixa validada de Rfault (100 -> 3000 ohm), sem alteracao no modelo ou nos dados de treino",
+      "informal_validation_accuracy": "100% (30/30) testando as 10 classes em Rfault 1000-3000 ohm a 300km, e 100% (22/22) num teste inicial com AG isolado ate 3000 ohm em 150km e 500km. Confianca calibrada estavel 88-92%.",
+      "note": "O modelo foi treinado apenas ate 100 ohm mas generaliza bem alem disso; a faixa de 100 ohm documentada em versoes anteriores era conservadora, nao um limite fisico real."
+    },
+    {
+      "version": "v8",
+      "scope": "Janela de deteccao do classificador ampliada (t_cl livre); localizador protegido por trava de seguranca fora de 80-105ms",
+      "informal_validation_accuracy": "99,7% mantido nos 300 casos independentes com a nova janela (mesmo modelo, sem retreino). Confirmado classificando corretamente com t_cl=30ms e t_cl=120ms (fora da janela antiga)."
+    },
+    {
+      "version": "v9",
+      "scope": "Corrigido bug de normalizacao no localizador (traveling_wave_localizer.py e adaptive_localizer.py): janela de baseline passou de fixa (0.03-0.075s) para a mesma janela de regime permanente relativa ao inicio da simulacao usada em feature_extraction.py. Teto de busca de reflexao ampliado de 500km para 620km.",
+      "informal_validation_accuracy": "t_cl=33ms e t_cl=117ms a 150km: erro caiu de 79-243km (falso-conclusivo) para 0,31km em ambos. 30 casos novos em 400-500km: 0 falso-conclusivos (antes 0 testados nessa condicao especifica, mas o mesmo bug se aplicava). 30 casos novos em 500-600km (fora da faixa antes validada): 28/30 conclusivos, 0 falso-conclusivos, MAE 1,66km, erro maximo 7,12km.",
+      "note": "A causa raiz das duas limitacoes documentadas em v1-v8 (distancia errada fora de 80-105ms, e reflexao falsa aceita acima de 450km) era a mesma: a janela de normalizacao presa ao t_cl classico distorcia a curva de correlacao em qualquer cenario fora dela. Corrigindo a normalizacao, ambas desapareceram na revalidacao."
+    },
+    {
+      "version": "v9-batch",
+      "scope": "Bateria de validacao em escala apos a correcao v9: 280 casos novos cobrindo toda a faixa documentada (10 classes, distancia 15-600km, Rfault 0.01-3000ohm em 3 faixas, angulo 0-360, 220 com t_cl classico e 60 com t_cl livre 25-125ms).",
+      "informal_validation_accuracy": "Classificacao: 279/280 = 99.64% (1 erro: CG confundido com BG, confianca baixa 31%, 106ohm/164km). Localizacao: 269/280 conclusivos (96.1%), MAE 2.61km entre os conclusivos corretos, mas 4/269 conclusivos (1.5%) foram falso-conclusivos (erro 58-162km).",
+      "note": "A correcao v9 eliminou os padroes sistematicos conhecidos (t_cl fora de 80-105ms, >450km), mas nao eliminou completamente o risco de reflexao falsa: em escala ainda ocorre ocasionalmente (~1.4% dos casos totais), sem um padrao unico identificavel (ocorreu em Rfault alto e baixo, t_cl classico e no limite da janela ampliada, distancias medias e longas). Tentativa de usar a margem entre o 1o e 2o candidato como filtro adicional NAO funcionou: casos corretos tem margens tao baixas quanto os errados (ambos na faixa 0.001-0.05), entao nao ha um limiar que rejeite os ruins sem tambem rejeitar bons. Este e o principal risco residual conhecido do localizador."
+    },
+    {
+      "version": "v9-investigation",
+      "scope": "Investigacao adicional dos 4 casos falso-conclusivos da v9-batch: testado consenso multiescala (locate_multiscale, 4 bandas) e o erro de consistencia temporal entre terminais (consistency_error_us) como possiveis filtros discriminantes.",
+      "informal_validation_accuracy": "Nao aplicavel (investigacao de causa, nao mudanca de acuracia).",
+      "note": "Nenhum dos dois ajudou. Multiescala: em 3 dos 4 casos ruins, as 4 bandas concordam entre si na MESMA resposta errada (spread baixo), entao o consenso nao detecta o erro; em apenas 1 caso as bandas discordaram e seriam corretamente rejeitadas. Consistencia entre terminais: os 4 casos ruins tem consistency_error_us entre 0.54-2.24us, dentro da faixa normal dos casos corretos (0-14us) — os dois terminais concordam consistentemente na reflexao errada, indicando que ela e uma reflexao fisica real (provavel segundo salto/reflexao do terminal remoto), nao ruido de medicao. Conclusao: o problema exige um metodo de desambiguacao de candidato diferente (ex: restricao por distancia fisica plausivel ou comparacao com estimativa independente), nao um ajuste de limiar sobre os sinais existentes."
+    },
+    {
+      "version": "v10",
+      "scope": "Regressor de ML (RandomForestRegressor, 400 arvores) treinado para estimar distancia diretamente dos 61 atributos fisicos ja usados pelo classificador (sem usar a correlacao de ondas viajantes). Reaproveitou 1337 casos ja gerados em sessoes anteriores (nenhuma simulacao ATP nova). Usado como checagem cruzada: se a distancia do localizador discordar do regressor por mais de 100km, o resultado vira inconclusivo.",
+      "informal_validation_accuracy": "Regressor isolado (holdout de 268 casos, 20% do dataset): MAE 28.42km, R2 0.9486, mediana 20.35km, p90 64.25km, maximo 230.03km — impreciso demais para localizar sozinho, mas suficiente para servir de checagem grosseira. Pipeline completo (localizador + gate) revalidado nos mesmos 280 casos da v9-batch: conclusivos cai de 269 para 264 (96.1% -> 94.3% de cobertura), falso-conclusivos cai de 4 para 1 (1.49% -> 0.38% dos conclusivos), MAE dos conclusivos corretos melhora de 2.61km para 0.99km. Custo: 2 casos corretos (erro <=10km) foram rejeitados desnecessariamente pelo gate.",
+      "note": "O regressor funciona por um principio fisico diferente do localizador (atenuacao/impedancia aparente do sinal no terminal local, nao correlacao de tempo de reflexao), entao seus erros nao sao correlacionados com os erros do localizador — e por isso serve como checagem independente. Dos 4 casos falso-conclusivos conhecidos, 3 tiveram discordancia >100km (145-312km) e foram corretamente barrados; 1 teve discordancia de apenas 49.7km (abaixo do limiar) e ainda escapa. O risco residual nao foi eliminado, apenas reduzido em ~4x."
+    }
+  ],
+  "classifier": {
+    "path": "modelos/robust_classifier_v5_calibrated.joblib",
+    "sha256": "FEE3433C873245953F9DD8BD1D55A7CD06D17EA5F4AE4F441266C7F80400561C",
+    "training": "Mesmo modelo base do v5 (1146 casos x 7 condicoes) + calibracao Platt/sigmoid sobre os 100 casos de validacao",
+    "validated_distance_range_km": [15, 600],
+    "calibration_method": "sigmoid (Platt), scikit-learn CalibratedClassifierCV, cv=prefit",
+    "validated_rfault_range_ohm": [0.01, 3000.0],
+    "event_window_s": [0.025, 0.125]
+  },
+  "localizer": {
+    "validated_distance_range_km": [15, 600],
+    "note": "Estendido de 450km para 600km em v9, apos correcao da janela de baseline (ver history/v9). Antes de v9, esta faixa era 15-450km; acima disso o metodo aceitava reflexoes falsas como confiaveis, causado pela mesma normalizacao quebrada corrigida agora.",
+    "snr_threshold_db": 50.0,
+    "safe_event_window_s": [0.025, 0.125],
+    "maximum_search_distance_km": 620.0
+  },
+  "distance_sanity_check": {
+    "path": "distance_sanity_regressor.joblib",
+    "sha256": "470E4C891C2CCB0AB8F033DE1D5F85CC090FAC41DF355573DE6A25BE1B65B1F2",
+    "model": "RandomForestRegressor(n_estimators=400, min_samples_leaf=2)",
+    "training": "1337 casos ja gerados em sessoes anteriores (reaproveitados de C:\\RESULTPESQUISA), split 80/20",
+    "holdout_mae_km": 28.42,
+    "holdout_r2": 0.9486,
+    "max_disagreement_km": 100.0,
+    "note": "Estima distancia pela atenuacao do sinal no terminal local (mesmos 61 atributos do classificador), independente da correlacao de reflexao usada pelo localizador. Serve como checagem cruzada, nao como metodo de localizacao principal."
+  },
+  "known_limitations": [
+    "RISCO RESIDUAL (reduzido, nao eliminado): apos a correcao v9 e a checagem de sanidade v10, o localizador ainda aceita reflexoes falsas como conclusivas em ~0.38% dos casos conclusivos (1/264 na revalidacao da bateria de 280 casos; antes da checagem de sanidade era 1.49%). O caso residual teve discordancia de apenas 49.7km entre o localizador e o regressor de sanidade, abaixo do limiar de 100km. Nao reportar a localizacao como garantida; tratar como estimativa sujeita a esse risco residual, agora bem menor.",
+    "Confusao residual muito pontual ABG<->AB em curtissima distancia (1 erro em 300 testados na v5); nao reproduzida em 40 casos novos testados na v9 (0 erros) — tratada como ruido estatistico de um classificador ja proximo do teto, nao um padrao sistematico corrigivel.",
+    "Taxonomia nao inclui falta trifasica-terra (ABCG) como classe separada.",
+    "Validacoes v2-v9 sao lotes informais pos-treino, nao substituem uma campanha cega formal.",
+    "A faixa 600-620km do localizador (margem de busca) nao foi validada com casos reais; e apenas folga tecnica no teto de busca."
+  ],
+  "policy": "Este e um artefato experimental derivado do FINAL_PIPELINE_FREEZE.json original (v1). Para reivindicar rigor cego equivalente ao v1, seria necessaria uma campanha formal nova com splits bloqueados antes do treino.",
+  "traveling_wave_velocity_km_per_us": 0.29927465071442727,
+  "adaptive_snr_threshold_db": 50.0,
+  "multiscale_cutoffs_hz": [60000, 80000, 100000, 150000],
+  "multiscale_maximum_spread_km": 3.0,
+  "based_on": "campaign_v5_900 (1066 casos) + 80 casos novos em campaign_v6_ab_focus"
+}

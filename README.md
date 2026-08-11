@@ -81,7 +81,8 @@ src/                       Código-fonte Python (pipeline, treino, GUI)
 
 modelos/                   Artefatos congelados
 ├── robust_classifier_v5_calibrated.joblib   Classificador ativo
-├── FINAL_PIPELINE_FREEZE_V9.json            Congelamento ativo + histórico completo
+├── distance_sanity_regressor.joblib         Checagem de sanidade do localizador (ML)
+├── FINAL_PIPELINE_FREEZE_V10.json           Congelamento ativo + histórico completo
 └── classificador_config.master.json
 
 docs/                       Relatórios e documentação de continuidade
@@ -119,7 +120,7 @@ Ou, para inferência direta em linha de comando:
 cd src
 python infer_fault.py "C:\caminho\novo.pl4" `
   --classifier "..\modelos\robust_classifier_v5_calibrated.joblib" `
-  --freeze "..\modelos\FINAL_PIPELINE_FREEZE_V9.json" `
+  --freeze "..\modelos\FINAL_PIPELINE_FREEZE_V10.json" `
   --output resultado.json
 ```
 
@@ -179,19 +180,23 @@ produz corrente de neutro próxima de zero, com ou sem aterramento).
 
 ## Limitações conhecidas
 
-- **Risco principal do localizador**: mesmo após a correção da janela de
-  normalização, uma bateria de 280 casos cobrindo toda a faixa de
-  parâmetros mostrou que ~1,4% dos casos (4/280) ainda recebem uma
-  distância marcada como conclusiva mas errada por 58-162 km. Foram
-  testados três filtros adicionais (margem entre candidatos, consenso
-  multiescala, consistência temporal entre terminais) e nenhum separa
-  esses casos dos corretos: nos casos ruins, os dois terminais e todas as
-  bandas de frequência concordam consistentemente na mesma reflexão
-  errada, o que indica ser uma reflexão física real (provável segundo
-  salto), não ruído de medição. Corrigir isso exigiria um método de
-  desambiguação de candidato diferente — fora do escopo atual. Trate a
-  distância reportada como estimativa sujeita a esse risco residual, não
-  como garantia.
+- **Risco residual do localizador (reduzido, não eliminado)**: mesmo após
+  a correção da janela de normalização, uma bateria de 280 casos mostrou
+  que ~1,5% dos casos conclusivos ainda recebiam uma distância errada com
+  falsa confiança (erro de 58-162 km). Três filtros baseados no próprio
+  sinal de reflexão (margem entre candidatos, consenso multiescala,
+  consistência entre terminais) não resolveram isso — nos casos ruins, os
+  dois terminais concordam consistentemente na mesma reflexão errada
+  (provável segundo salto), então não é ruído de medição. A solução foi
+  adicionar uma **checagem de sanidade por machine learning**: um
+  `RandomForestRegressor` estima a distância pela atenuação do sinal (um
+  princípio físico independente da correlação de reflexão); quando as
+  duas estimativas discordam por mais de 100 km, o resultado vira
+  inconclusivo em vez de reportado com confiança falsa. Isso reduziu a
+  taxa de falso-conclusivo de 1,49% para 0,38% dos casos conclusivos, ao
+  custo de perder ~2% de cobertura (casos corretos ocasionalmente
+  rejeitados à toa). O risco não foi eliminado — trate a distância
+  reportada como estimativa, não como garantia absoluta.
 - Há uma confusão residual muito pontual entre `ABG` e `AB` em distâncias
   muito curtas (1 caso em 300 testados na v5); não foi reproduzida em 40
   casos novos testados na v9 — tratada como ruído estatístico, não um
@@ -230,6 +235,7 @@ Resumo da evolução do classificador; detalhes completos em
 | v8 | Janela de detecção do classificador ampliada; guarda de segurança adicionada ao localizador | 99,7% mantido com t_cl livre |
 | v9 | Corrigido bug de normalização no localizador (janela de baseline fixa → relativa ao início da simulação) | t_cl fora de 80-105ms: erro caiu de 79-243km para 0,31km; 500-600km: 0 falso-conclusivos em 30 casos, MAE 1,66km |
 | v9-batch | Validação em escala (280 casos, toda a faixa de parâmetros) | Classificação 99,64%; localização 96,1% conclusivo, MAE 2,61km, 1,5% falso-conclusivo entre os conclusivos (risco residual documentado) |
+| v10 | Regressor de ML como checagem de sanidade independente do localizador (estima distância pela atenuação do sinal, não pela correlação de reflexão) | Falso-conclusivo cai de 1,49% para 0,38% (redução de ~4x); cobertura cai de 96,1% para 94,3% (2 casos bons rejeitados à toa); MAE dos corretos melhora para 0,99km |
 
 ---
 

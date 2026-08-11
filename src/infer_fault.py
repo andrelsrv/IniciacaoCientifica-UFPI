@@ -30,7 +30,9 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest().upper()
 
 
-def infer_fault(pl4: Path, classifier_path: Path, freeze_path: Path) -> dict[str, object]:
+def infer_fault(
+    pl4: Path, classifier_path: Path, freeze_path: Path, regressor_path: Path | None = None
+) -> dict[str, object]:
     """Executa a inferência congelada e retorna um objeto serializável."""
     freeze = json.loads(freeze_path.read_text(encoding="utf-8"))
     actual_hash = _sha256(classifier_path)
@@ -42,6 +44,14 @@ def infer_fault(pl4: Path, classifier_path: Path, freeze_path: Path) -> dict[str
     features = extract_features(signals)
     if tuple(artifact["feature_names"]) != features.names:
         raise ValueError("A ordem de atributos difere do modelo congelado.")
+
+    regressor_info = freeze.get("distance_sanity_check")
+    sanity_artifact = None
+    if regressor_info is not None:
+        candidate_path = regressor_path or (freeze_path.parent / regressor_info["path"])
+        if _sha256(candidate_path) != regressor_info["sha256"]:
+            raise ValueError("O regressor de sanidade não corresponde ao artefato congelado.")
+        sanity_artifact = joblib.load(candidate_path)
     probabilities = artifact["classifier"].predict_proba(features.values.reshape(1, -1))[0]
     best = int(np.argmax(probabilities))
     predicted_class = str(artifact["classifier"].classes_[best])
@@ -85,6 +95,30 @@ def infer_fault(pl4: Path, classifier_path: Path, freeze_path: Path) -> dict[str
             "reason": result.inconclusive_reason,
             "method": result.method,
         }
+        # Checagem de sanidade independente: um regressor de ML (treinado a
+        # partir da atenuacao do sinal, nao da correlacao de ondas viajantes)
+        # estima a distancia por um caminho fisico diferente. Validado em
+        # 280 casos: reduz o risco de reflexao falsa aceita como conclusiva
+        # de ~1.5% para ~0.4% dos casos conclusivos, ao custo de rejeitar
+        # raros casos corretos com atenuacao atipica. Ver freeze v10.
+        if location["conclusive"] and sanity_artifact is not None:
+            regressor_estimate = float(
+                sanity_artifact["model"].predict(features.values.reshape(1, -1))[0]
+            )
+            disagreement_km = abs(location["distance_from_PDT_km"] - regressor_estimate)
+            max_disagreement = float(regressor_info["max_disagreement_km"])
+            if disagreement_km > max_disagreement:
+                location = {
+                    "conclusive": False,
+                    "distance_from_PDT_km": None,
+                    "reason": (
+                        f"Reflexao rejeitada pela checagem de sanidade: onda viajante estimou "
+                        f"{location['distance_from_PDT_km']:.1f}km, mas o regressor de atenuacao "
+                        f"estimou {regressor_estimate:.1f}km (discordancia de {disagreement_km:.1f}km, "
+                        f"acima do limite de {max_disagreement:.0f}km)."
+                    ),
+                    "method": None,
+                }
     output = {
         "input": str(pl4),
         "classification": {
@@ -113,9 +147,10 @@ def main() -> int:
     parser.add_argument("pl4", type=Path)
     parser.add_argument("--classifier", type=Path, required=True)
     parser.add_argument("--freeze", type=Path, required=True)
+    parser.add_argument("--regressor", type=Path, default=None)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
-    output = infer_fault(args.pl4, args.classifier, args.freeze)
+    output = infer_fault(args.pl4, args.classifier, args.freeze, args.regressor)
     rendered = json.dumps(output, ensure_ascii=False, indent=2)
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
