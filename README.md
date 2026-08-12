@@ -8,8 +8,8 @@ atributos físicos e *machine learning*.
 
 Projeto de Iniciação Científica (PIBIC) — Universidade Federal do Piauí
 
-[![Download](https://img.shields.io/badge/⬇%20Download-Vers%C3%A3o%20portátil%20(.zip)-2ea44f?style=for-the-badge)](https://github.com/andrelsrv/PesquisaAcademicaUFPI/releases/latest/download/ClassificadorFaltasATP-v1.0-portable.zip)
-[![Releases](https://img.shields.io/github/v/release/andrelsrv/PesquisaAcademicaUFPI?style=for-the-badge&label=vers%C3%A3o)](https://github.com/andrelsrv/PesquisaAcademicaUFPI/releases)
+[![Download](https://img.shields.io/badge/⬇%20Download-Vers%C3%A3o%20portátil%20(.zip)-2ea44f?style=for-the-badge)](https://github.com/andrelsrv/IC-UFPI/releases/latest/download/ClassificadorFaltasATP-v1.0-portable.zip)
+[![Releases](https://img.shields.io/github/v/release/andrelsrv/IC-UFPI?style=for-the-badge&label=vers%C3%A3o)](https://github.com/andrelsrv/IC-UFPI/releases)
 [![Testes](https://img.shields.io/badge/testes-35%2F35%20passando-brightgreen?style=for-the-badge)](#testes-automatizados)
 [![Licença](https://img.shields.io/badge/licença-MIT-blue?style=for-the-badge)](LICENSE)
 
@@ -60,7 +60,7 @@ O produto final é um aplicativo gráfico standalone (`.exe`) que recebe um
 <tr>
 <td>
 
-**[⬇ Baixar a versão portátil (.zip, ~145 MB)](https://github.com/andrelsrv/PesquisaAcademicaUFPI/releases/latest/download/ClassificadorFaltasATP-v1.0-portable.zip)**
+**[⬇ Baixar a versão portátil (.zip, ~145 MB)](https://github.com/andrelsrv/IC-UFPI/releases/latest/download/ClassificadorFaltasATP-v1.0-portable.zip)**
 
 1. Baixe e extraia o `.zip` em qualquer pasta.
 2. Abra a pasta `app/` e dê dois cliques em `ABRIR_CLASSIFICADOR.bat`.
@@ -74,7 +74,7 @@ O produto final é um aplicativo gráfico standalone (`.exe`) que recebe um
 > GitHub?** O repositório usa Git LFS para os arquivos grandes (o `.exe` e
 > os modelos treinados). O download padrão do GitHub **não baixa o
 > conteúdo real desses arquivos** — só um ponteiro de texto — e o programa
-> não funcionaria. O `.zip` da seção [Releases](https://github.com/andrelsrv/PesquisaAcademicaUFPI/releases)
+> não funcionaria. O `.zip` da seção [Releases](https://github.com/andrelsrv/IC-UFPI/releases)
 > já vem com tudo resolvido e pronto para uso.
 
 Se você é desenvolvedor e quer o código-fonte com histórico completo, use
@@ -157,8 +157,8 @@ arquivos grandes) e as dependências do projeto (`scikit-learn`, `numpy`,
 `scipy`, `joblib`, `matplotlib`).
 
 ```powershell
-git clone https://github.com/andrelsrv/PesquisaAcademicaUFPI.git
-cd PesquisaAcademicaUFPI
+git clone https://github.com/andrelsrv/IC-UFPI.git
+cd IC-UFPI
 cd src
 python classificador_gui_v2.py
 ```
