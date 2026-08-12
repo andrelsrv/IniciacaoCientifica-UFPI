@@ -1,0 +1,72 @@
+{
+  "frozen_at": "2026-08-11",
+  "purpose": "Congelamento v13: corrigido bug critico de formatacao numerica em fault_case_generator.py que corrompia o Rfault real simulado no ATP para qualquer valor 'redondo' (sem parte fracionaria). O campo de resistencia do ramo R-L-C usa formato de coluna fixa do ATP com posicao decimal implicita quando nao ha ponto decimal explicito no texto: '3000' era lido como 30.00 (100x menor). Isso corrompeu 55 dos 1383 casos de treino historicos (todos com Rfault redondo: 1, 5, 10, 20, 25, 50, 75, 79, 100 ohm). Alem disso, foi descoberto que a malha oficial de treino para faltas bifasicas-terra (ABG/BCG/CAG) nunca cobriu Rfault acima de 100 ohm -- a nota da v7 de que o modelo 'generaliza bem alem de 100 ohm' estava incorreta: os casos de validacao daquela epoca tambem foram gerados pelo mesmo gerador com o bug, entao um Rfault nominal de 1000-3000 ohm na verdade rodou no ATP como algo proximo de 10-30 ohm (dentro da distribuicao de treino), o que explica o falso sucesso reportado. A causa raiz foi diagnosticada a partir de um caso real do usuario (falta AB-G desenhada manualmente no ATPDraw, Rfault=3000 ohm genuino) que o classificador v12 classificava erroneamente como AB.",
+  "history": [
+    { "version": "v1", "scope": "original, 500 casos, 350 treino/80 validacao/70 teste cego oficial", "blind_test_accuracy": "macro-F1 100% (7 condicoes oficiais); localizador MAE 0.665km em 15-450km ideal" },
+    { "version": "v2", "scope": "+36 casos ABG/BCG/CAG em 200-450km", "informal_validation_accuracy": "91.8% em 110 casos novos (2 lotes independentes, 15-450km)" },
+    { "version": "v3", "scope": "+80 casos em 450-600km (10 classes)", "informal_validation_accuracy": "96.0% em 50 casos novos, 15-600km" },
+    { "version": "v4", "scope": "+450 casos (enfase 200-600km, todas as 10 classes)", "informal_validation_accuracy": "98,7% combinado em 230 casos independentes (160+70); 100% nas 6 classes com terra (138/138)" },
+    { "version": "v5", "scope": "+80 casos sem terra em 15-80km", "informal_validation_accuracy": "99,7% combinado em 300 casos independentes (230+70); 100% no lote de confirmacao final de 70 casos." },
+    { "version": "v6", "scope": "Calibracao de confianca (Platt/sigmoid) sobre o classificador v5, sem alterar dados de treino", "informal_validation_accuracy": "99,7% (identico ao v5) em 300 casos independentes; confianca media sobe de ~75% para 88,7%" },
+    { "version": "v7", "scope": "Ampliacao da faixa validada de Rfault (100 -> 3000 ohm), sem alteracao no modelo ou nos dados de treino", "informal_validation_accuracy": "100% (30/30) testando as 10 classes em Rfault 1000-3000 ohm a 300km, e 100% (22/22) num teste inicial com AG isolado ate 3000 ohm em 150km e 500km. Confianca calibrada estavel 88-92%.", "note": "INVALIDADO EM v13: essa validacao usava o mesmo gerador com o bug de formatacao descoberto na v13. Os casos nominalmente 'Rfault 1000-3000 ohm' na verdade rodaram no ATP com Rfault real ~100x menor (dentro da faixa ja treinada), entao o resultado de 100% nao media generalizacao real para alta impedancia. Ver history/v13." },
+    { "version": "v8", "scope": "Janela de deteccao do classificador ampliada (t_cl livre); localizador protegido por trava de seguranca fora de 80-105ms", "informal_validation_accuracy": "99,7% mantido nos 300 casos independentes com a nova janela (mesmo modelo, sem retreino). Confirmado classificando corretamente com t_cl=30ms e t_cl=120ms (fora da janela antiga)." },
+    { "version": "v9", "scope": "Corrigido bug de normalizacao no localizador: janela de baseline passou a ser relativa ao evento. Teto de busca de reflexao ampliado de 500km para 620km.", "informal_validation_accuracy": "t_cl=33ms e t_cl=117ms a 150km: erro caiu de 79-243km para 0,31km. 30 casos novos em 500-600km: 28/30 conclusivos, 0 falso-conclusivos, MAE 1,66km." },
+    { "version": "v9-batch", "scope": "Bateria de 280 casos novos pos-correcao v9.", "informal_validation_accuracy": "Classificacao 279/280 (99.64%). Localizacao: 269/280 conclusivos (96.1%), MAE 2.61km, 4/269 (1.5%) falso-conclusivos." },
+    { "version": "v10", "scope": "Regressor de sanidade de distancia (RandomForestRegressor) como checagem cruzada independente.", "informal_validation_accuracy": "Regressor isolado: MAE 28.42km, R2 0.9486. Pipeline com gate: falso-conclusivos cai de 4 para 1 em 280 casos (1.49% -> 0.38%)." },
+    { "version": "v11", "scope": "Tmax ampliado 0.15s -> 0.5s; janela de busca 25-475ms.", "informal_validation_accuracy": "40 casos t_cl uniforme 25-475ms: classificacao 100%, localizacao 92.5% conclusivo, 0 falso-conclusivos, MAE 0.99km." },
+    { "version": "v12", "scope": "Descoberto e corrigido limite numerico do solver ATP acima de ~800-900 mil passos. Tmax fixado em 0.7s; janela 25-675ms.", "informal_validation_accuracy": "40 casos t_cl uniforme 25-675ms: classificacao 100%, localizacao 97.5% conclusivo, 1 falso-conclusivo (2.5%), MAE 3.16km." },
+    {
+      "version": "v13",
+      "scope": "Corrigido bug critico em fault_case_generator._format_field(): valores numericos 'redondos' (sem parte decimal) perdiam o ponto decimal no texto escrito no cartao ATP, causando leitura errada por posicao decimal implicita (ex: Rfault nominal 3000 ohm rodava como 30 ohm real). Afetou 55/1383 casos historicos com Rfault redondo -- todos regenerados com o gerador corrigido. Adicionalmente, constatado que a malha oficial de treino para ABG/BCG/CAG nunca cobriu Rfault acima de 100 ohm; gerados +129 casos novos (57 exploratorios + 72 densos) cobrindo 120-3000 ohm para essas 3 classes, com distancias/angulos/remotos variados, respeitando o isolamento de test_unseen (nenhum valor de dimensao fisica dos novos casos de treino reutiliza valores do split test_unseen oficial). Classificador (ExtraTrees/RandomForest, selecao automatica por robustez) e calibracao (Platt/sigmoid) retreinados do zero sobre o manifesto combinado (1275 casos base, split train/validation). Regressor de sanidade de distancia retreinado sobre 1912 casos (incluindo os corrigidos e os novos de alta impedancia).",
+      "informal_validation_accuracy": "Retreino base: worst_robust_macro_f1 0.813 (queda esperada de 1.0 no v12, pois a tarefa ficou genuinamente mais dificil com dados de alta impedancia reais). Calibracao: 99.3% no teste independente de 300 casos historicos. Regressor de sanidade: MAE 23.53km, R2 0.9621 em holdout (1912 casos, ligeira melhora sobre v12). Caso real do usuario (falta AB-G manual, Rfault=3000 ohm genuino, previamente classificado como AB pelo v12 com 80% de confianca): reclassificado corretamente como ABG com 71.9% de confianca calibrada.",
+      "note": "Este e o primeiro congelamento cuja motivacao partiu de um erro relatado pelo usuario em um caso real (fora do pipeline automatico), nao de uma investigacao interna. A causa raiz (bug de formatacao) foi isolada por eliminacao experimental: reconstrucao controlada do arquivo ATP do usuario campo a campo, trocando uma variavel de cada vez, ate encontrar o unico campo cuja alteracao reproduzia exatamente a confianca de classificacao observada no arquivo real (80.381413535577%, batendo ate a 13a casa decimal). A auditoria confirmou que o mesmo padrao de codigo (_format_field) usado no campo de tempo de abertura de chaves (topen) e no comprimento de linha do gerador JMarti NAO sofre do mesmo bug, pois esses campos usam parsers de formato livre do ATP, diferente do campo de resistencia do ramo R-L-C que usa formato fixo com decimal implicito."
+    }
+  ],
+  "classifier": {
+    "path": "modelos/robust_classifier_v13_calibrated.joblib",
+    "sha256": "96B9AADD4AD8688DB483C9C518CB4C63C7E2D6C325983FE0FE7E207EEFDD00E6",
+    "training": "1340 casos base (manifesto v9: v8 + 66 casos de reforco de fronteira AB/ABG, BC/BCG, CA/CAG em 15-95ohm, mais alguns extras 2200-3000ohm) x 7 condicoes de robustez = 7938 amostras aumentadas. Selecao automatica: random_forest_leaf_1 (melhor worst_robust_macro_f1 = 0.823). Calibracao Platt/sigmoid sobre split de validacao (136 casos).",
+    "validated_distance_range_km": [15, 600],
+    "calibration_method": "sigmoid (Platt), scikit-learn CalibratedClassifierCV, cv=prefit",
+    "validated_rfault_range_ohm": [0.01, 3000.0],
+    "validated_rfault_range_ohm_grounded_double_phase": [0.01, 3000.0],
+    "event_window_s": [0.025, 0.675]
+  },
+  "localizer": {
+    "validated_distance_range_km": [15, 600],
+    "note": "Sem alteracoes na v13 (correcao foi no gerador de treino e no classificador, nao no algoritmo de localizacao por ondas viajantes).",
+    "snr_threshold_db": 50.0,
+    "safe_event_window_s": [0.025, 0.675],
+    "maximum_search_distance_km": 620.0
+  },
+  "simulation_template": {
+    "tmax_s": 0.7,
+    "note": "Sem alteracoes na v13. Ver history/v12 para o limite do solver ATP."
+  },
+  "distance_sanity_check": {
+    "path": "distance_sanity_regressor.joblib",
+    "sha256": "69E7CF98F1A766B3A2DB1E8D0478763A3E57197407D5A22FF8464F936699A77E",
+    "model": "RandomForestRegressor(n_estimators=400, min_samples_leaf=2)",
+    "training": "1912 casos (todos os case.json encontrados em C:\\RESULTPESQUISA apos a correcao do bug de formatacao, incluindo os 55 casos regenerados e os 129 novos de alta impedancia), split 80/20",
+    "holdout_mae_km": 23.53,
+    "holdout_r2": 0.9621,
+    "max_disagreement_km": 100.0,
+    "note": "Retreinado na v13 com os dados corrigidos. Metodologia inalterada em relacao a v10/v12."
+  },
+  "status": "NAO ATIVO EM PRODUCAO. Congelado e documentado para retomada futura; producao continua no FINAL_PIPELINE_FREEZE_V12.json ate a limitacao do BCG abaixo ser investigada e corrigida.",
+  "known_limitations": [
+    "PENDENTE DE INVESTIGACAO (bloqueia uso em producao): varredura sistematica (nao aleatoria, 20-3000ohm em passos de 80ohm, distancia/angulo fixos) mostrou ABG correto em 38/38 pontos e CAG em 37/38, mas BCG errado (confundido com BC) em 36/36 pontos acima de ~150ohm nesse cenario especifico (200km, 45graus). Testes adicionais em outras 3 combinacoes de distancia/angulo mostraram o mesmo padrao binario: BCG acerta 100% em qualquer Rfault (500-2500ohm) num cenario e erra 100% em qualquer Rfault nos outros dois -- ou seja, o problema nao e o valor de Rfault em si, e sim uma fraqueza especifica de BCG em certas combinacoes de distancia/angulo que nao aparece em ABG/CAG apesar de densidade de treino equivalente entre as 3 classes (35-37 casos acima de 150ohm cada). Causa raiz nao identificada; precisa de mapeamento sistematico distancia x angulo especifico para BCG antes de promover esta versao a producao.",
+    "A validacao formal de Rfault alto (acima de 100 ohm) para faltas bifasicas-terra e nova (v13, ~195 casos entre v13-scope e reforco de fronteira) e menor em volume que a malha principal (que tem centenas de casos por classe abaixo de 100 ohm).",
+    "Bateria de 50 casos aleatorios (10 classes, 5 repeticoes): 88% de acerto geral (44/50), abaixo dos ~99-100% do v12/v11. A queda se concentra nas classes bifasicas-terra em Rfault medio-alto, consistente com a limitacao do BCG acima.",
+    "Taxonomia nao inclui falta trifasica-terra (ABCG) como classe separada.",
+    "Validacoes v2-v13 sao lotes informais pos-treino, nao substituem uma campanha cega formal.",
+    "A faixa 600-620km do localizador (margem de busca) nao foi validada com casos reais; e apenas folga tecnica no teto de busca.",
+    "O bug de formatacao corrigido na v13 (_format_field sem ponto decimal explicito) e especifico do campo de resistencia do ramo R-L-C do solver ATP principal; campos de switch (topen) e do gerador JMarti (comprimento de linha) foram auditados e confirmados livres do mesmo problema, pois usam parsers de formato livre do ATP."
+  ],
+  "policy": "Este e um artefato experimental derivado do FINAL_PIPELINE_FREEZE.json original (v1). Para reivindicar rigor cego equivalente ao v1, seria necessaria uma campanha formal nova com splits bloqueados antes do treino.",
+  "traveling_wave_velocity_km_per_us": 0.29927465071442727,
+  "adaptive_snr_threshold_db": 50.0,
+  "multiscale_cutoffs_hz": [60000, 80000, 100000, 150000],
+  "multiscale_maximum_spread_km": 3.0,
+  "based_on": "campaign_v8_dense_highz (1275 casos: campaign_v6_ab_focus + campaign_v7_high_z_grounded + campaign_v8_dense_highz)"
+}
