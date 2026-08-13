@@ -98,6 +98,47 @@ vazamento em `src/manifest.py`). Detalhes completos, incluindo casos que
 falharam, estão em `resultados_experimentos/` e no histórico de versões
 abaixo.
 
+## Desempenho por classe e faixa de impedância (em andamento)
+
+> **Nota**: esta tabela reflete um lote de testes de um modelo **experimental**
+> (candidato v20, ainda em ajuste), não o modelo em produção. Serve para
+> documentar o progresso do ajuste fino em direção à meta de 90%+ de acerto
+> em todas as classes e faixas de resistência de falta (Rfault). Teste: 10.000
+> casos gerados de forma independente (100 por classe × Rfault), nunca usados
+> no treino.
+
+| Classe | Muito baixa<br>(≤15 Ω) | Baixa<br>(50-100 Ω) | Média<br>(300 Ω) | Alta<br>(900-1800 Ω) | Muito alta<br>(2800-3000 Ω) |
+|---|:---:|:---:|:---:|:---:|:---:|
+| `AG`  | 100% | 100% | 100% | 100% | 100% |
+| `BG`  | 100% | 100% | 100% | 100% | 100% |
+| `CG`  | 100% | 100% | 100% | 100% | 100% |
+| `AB`  | 🔴 61% | 100% | 100% | 100% | 100% |
+| `BC`  | 🔴 76% | 100% | 100% | 100% | 99% |
+| `CA`  | 🟡 93% | 100% | 100% | 100% | 100% |
+| `ABG` | 100% | 97% | 95% | 🟡 84% | 🔴 72% |
+| `BCG` | 100% | 100% | 98% | 🟡 89% | 🔴 64% |
+| `CAG` | 100% | 100% | 100% | 98% | 🟡 90% |
+| `ABC` | 100% | 100% | 100% | 100% | 🟡 88% |
+
+🔴 abaixo de 80%&nbsp;&nbsp;🟡 80-89%&nbsp;&nbsp;(sem marcação = 90%+)
+
+**Padrão identificado**: os dois pontos fracos têm causas físicas distintas,
+não uma única "zona de fronteira":
+
+- **`AB`/`BC` em Rfault muito baixo (≤15 Ω)**: a feature mais discriminativa
+  (razão de sequência-zero da corrente) fica instável nesse regime — o
+  desvio-padrão chega a ser da ordem da própria média — mesmo em faltas
+  puramente fase-fase, sem ligação à terra. Não é confusão física real com
+  `ABG`/`BCG`; é ruído numérico na janela de transitório. Mais dados de
+  treino no mesmo formato não resolvem — é necessária uma feature mais
+  robusta nesse regime (ex: janela de integração maior).
+- **`ABG`/`BCG` em Rfault alto (≥900 Ω)**: degradação gradual e fisicamente
+  esperada — com resistência de falta muito alta, a corrente pelo caminho de
+  terra tende a zero, aproximando o sinal do de uma falta `AB`/`BC` sem
+  aterramento. Mais dados de treino ajudam aqui, mas com retorno
+  decrescente; pode haver um limite físico de separabilidade nos extremos
+  (2800-3000 Ω).
+
 ## Estrutura do projeto
 
 ```
