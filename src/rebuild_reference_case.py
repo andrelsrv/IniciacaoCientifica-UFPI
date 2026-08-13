@@ -10,7 +10,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from jmarti_generator import sha256
+from jmarti_generator import cached_sha256, sha256
 
 
 INSERT_RE = re.compile(r"^\$INSERT,.*$", re.MULTILINE)
@@ -58,10 +58,10 @@ def rebuild(template_atp: Path, first_pch: Path, second_pch: Path,
 
     record = {
         "schema_version": 1,
-        "template_atp_sha256": sha256(template_atp),
-        "first_pch_sha256": sha256(first_pch),
-        "second_pch_sha256": sha256(second_pch),
-        "solver_sha256": sha256(solver),
+        "template_atp_sha256": cached_sha256(template_atp),
+        "first_pch_sha256": cached_sha256(first_pch),
+        "second_pch_sha256": cached_sha256(second_pch),
+        "solver_sha256": cached_sha256(solver),
         "pl4_sha256": sha256(output_dir / f"{name}.pl4"),
     }
     (output_dir / f"{name}.provenance.json").write_text(

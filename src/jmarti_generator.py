@@ -41,6 +41,22 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+_SHA256_CACHE: dict[tuple[str, int], str] = {}
+
+
+def cached_sha256(path: Path) -> str:
+    """Como sha256(), mas evita rehash de arquivos reutilizados entre casos
+    (template ATP, solver, .pch de um pool de modelos de linha) -- o cache
+    e' invalidado automaticamente se o arquivo mudar (chave inclui mtime)."""
+    key = (str(path), path.stat().st_mtime_ns)
+    cached = _SHA256_CACHE.get(key)
+    if cached is not None:
+        return cached
+    digest = sha256(path)
+    _SHA256_CACHE[key] = digest
+    return digest
+
+
 def _node_field(nodes: tuple[str, str, str]) -> str:
     if len(nodes) != 3 or any(not node or len(node) > 6 for node in nodes):
         raise ValueError("Cada terminal deve ter exatamente três nós ATP de 1 a 6 caracteres")
