@@ -1,0 +1,71 @@
+{
+  "frozen_at": "2026-08-12",
+  "purpose": "Congelamento v17, primeira versao com cobertura de alta impedancia (Rfault > 100 ohm) promovida a producao. Corrige o bug de formatacao numerica (v13), a lacuna de amostragem em alta impedancia nas 10 classes (v14), a dimensao remote_length_km nunca variada na malha densa (v15), e ajusta max_features do RandomForest (0.3 em vez de sqrt) para reter melhor a feature de sequencia zero de tensao, que e o indicador fisico direto de presenca de caminho para terra e havia perdido importancia com o aumento do volume de dados de alta impedancia.",
+  "history": [
+    { "version": "v1-v12", "scope": "Ver FINAL_PIPELINE_FREEZE_V12.json e V13.json para o historico completo ate a descoberta do bug de formatacao numerica." },
+    { "version": "v13", "scope": "Corrigido bug critico em fault_case_generator._format_field(): valores de Rfault redondos perdiam o ponto decimal, lidos ~100x menores pelo ATP. Afetou 55/1383 casos historicos. Descoberto a partir de um caso real do usuario (AB-G, Rfault=3000 ohm) classificado erroneamente como AB pelo v12." },
+    {
+      "version": "v14",
+      "scope": "Descoberto que a malha de treino oficial nunca amostrou Rfault acima de 100 ohm em NENHUMA das 10 classes (nao so as bifasicas-terra). Gerados 8.100 casos novos (10 classes x 15 distancias x 18 angulos x 3 niveis de Rfault, remote fixo em 200km), usando geracao paralela e extracao imediata de features (pl4 apagado apos extracao para economizar disco).",
+      "informal_validation_accuracy": "95.6% em bateria de 90 casos frescos. AB caiu para 66.7% (causa identificada na v15)."
+    },
+    {
+      "version": "v15",
+      "scope": "Identificada a causa do AB fraco no v14: a malha densa fixou remote_length_km=200 para todos os 8.100 casos, nunca variando essa 4a dimensao. Gerados +4.320 casos variando tambem o remote (6 distancias x 4 remotos x 6 angulos x 3 Rfault x 10 classes).",
+      "informal_validation_accuracy": "97.0% em bateria de 100 casos. Teste robusto posterior (500 casos, 10 niveis de Rfault x 5 repeticoes x 10 classes): 95.8% geral, mas revelou REGRESSAO em baixa impedancia para AB (64%) e BC (68%) especificamente -- v12 tinha 100% nesses mesmos cenarios exatos."
+    },
+    {
+      "version": "v16 (descartada)",
+      "scope": "Tentativa de corrigir a regressao via sample_weight, equilibrando 50/50 a contribuicao do manifesto original vs a malha densa, por classe.",
+      "informal_validation_accuracy": "Nao funcionou: 95.2% geral, AB e BC pioraram para 60%/60%. Descartada."
+    },
+    {
+      "version": "v17",
+      "scope": "Diagnostico via feature_importances_: no v15, as features sequence_ratio__BEA_V_zero e sequence_ratio__PDT_V_zero (sequencia zero de TENSAO -- indicador fisico direto de caminho para terra) sairam do top-12 de importancia, substituidas por peak_ratio/rms_ratio genericos. Hipotese: com muito mais dados de alta impedancia (onde essa feature e naturalmente fraca), a floresta aleatoria passou a confiar menos nela mesmo em baixa impedancia, onde deveria ser quase perfeita. Testados 3 valores de max_features do RandomForest (0.3, 0.5, all) contra o baseline (sqrt) nos mesmos 500 casos do teste robusto.",
+      "informal_validation_accuracy": "max_features=0.3: 96.2% geral, AB=64% (igual ao melhor ja visto), BC=76% (melhorou de 68%). max_features=0.5: 95.8%/56%/76% (AB piorou). max_features=all: 94.0%/56%/68% (pior em tudo). max_features=0.3 escolhido por nao regredir nenhum criterio.",
+      "note": "AB continua abaixo da meta de 90% em baixa impedancia (64%). Promovido a producao mesmo assim por ser estritamente melhor que as alternativas testadas e MUITO melhor que o v12 em alta impedancia (que colapsava a 14.3% para AB acima de 500-1000ohm). Investigacao do AB continua em aberto -- ver historico futuro."
+    }
+  ],
+  "classifier": {
+    "path": "modelos/robust_classifier_v17_calibrated.joblib",
+    "sha256": "99D602FFFC1A57FB3A229B38C0CD3916E26B5C503AD87273AF9AA97043977846",
+    "training": "Manifesto original (1270 casos base x 7 condicoes de robustez) + malha densa v10 (8.100 casos, distancia x angulo x Rfault, remote=200 fixo) + malha densa v11 (4.320 casos, +remote variavel), condicao ideal apenas para as malhas densas. Total 20358 amostras de treino. RandomForestClassifier(n_estimators=600, min_samples_leaf=1, max_features=0.3, class_weight='balanced_subsample'). Calibracao Platt/sigmoid sobre split de validacao (136 casos).",
+    "validated_distance_range_km": [15, 600],
+    "calibration_method": "sigmoid (Platt), scikit-learn CalibratedClassifierCV, cv=prefit",
+    "validated_rfault_range_ohm": [0.01, 3000.0],
+    "event_window_s": [0.025, 0.675]
+  },
+  "localizer": {
+    "validated_distance_range_km": [15, 600],
+    "note": "Sem alteracoes na v17 (o trabalho desta versao foi inteiramente no classificador). Ver history/v12 para o algoritmo de localizacao por ondas viajantes.",
+    "snr_threshold_db": 50.0,
+    "safe_event_window_s": [0.025, 0.675],
+    "maximum_search_distance_km": 620.0
+  },
+  "simulation_template": {
+    "tmax_s": 0.7,
+    "note": "Sem alteracoes na v17. Ver history/v12 para o limite do solver ATP."
+  },
+  "distance_sanity_check": {
+    "path": "distance_sanity_regressor.joblib",
+    "sha256": "6813F3D5FCF3466D543A8B451F76A70922AC1DBC611ADF5764D65C3BF94B2C15",
+    "model": "RandomForestRegressor(n_estimators=400, min_samples_leaf=2)",
+    "training": "Sem alteracoes na v17 -- reutiliza o mesmo regressor do v12 (1737 casos, holdout MAE 24.81km, R2 0.9566). Os casos das malhas densas v10/v11 tiveram os pl4 apagados apos extracao de features (para economizar espaco em disco) e portanto nao puderam ser incorporados ao retreino deste regressor especifico, que depende do sinal bruto. Isso nao compromete a classificacao (foco desta versao), apenas significa que a checagem de sanidade de distancia ainda nao foi validada especificamente na faixa de alta impedancia.",
+    "max_disagreement_km": 100.0,
+    "note": "Retreino deste regressor incluindo a faixa de alta impedancia fica como trabalho futuro."
+  },
+  "known_limitations": [
+    "RESIDUAL CONHECIDO (nao resolvido): classe AB (fase-fase sem terra) tem apenas 64% de acerto em baixa impedancia (Rfault <= 100 ohm) no teste robusto de 500 casos -- abaixo da meta de 90% estabelecida pelo usuario. Confirmado como regressao introduzida pela malha densa de alta impedancia (v12 tinha 100% nos mesmos cenarios exatos). Investigacao em andamento: proximos candidatos a testar sao dois modelos especializados (baixa-Z / alta-Z) ou reduzir a proporcao da malha densa no treino.",
+    "BC tambem abaixo do ideal em baixa impedancia (76%), embora melhor que AB e que as versoes anteriores.",
+    "O regressor de sanidade de distancia nao foi retreinado com a malha densa de alta impedancia (ver distance_sanity_check acima) -- a checagem cruzada de localizacao pode ser menos confiavel especificamente para faltas de alta impedancia, embora isso nao tenha sido testado a fundo.",
+    "RISCO RESIDUAL (localizador): reflexoes falsas aceitas como conclusivas numa fracao pequena dos casos conclusivos (ver v9-batch/v10 em FINAL_PIPELINE_FREEZE_V12.json).",
+    "Taxonomia nao inclui falta trifasica-terra (ABCG) como classe separada.",
+    "Validacoes pos-v1 sao lotes informais, nao substituem uma campanha cega formal."
+  ],
+  "policy": "Este e um artefato experimental derivado do FINAL_PIPELINE_FREEZE.json original (v1). Para reivindicar rigor cego equivalente ao v1, seria necessaria uma campanha formal nova com splits bloqueados antes do treino.",
+  "traveling_wave_velocity_km_per_us": 0.29927465071442727,
+  "adaptive_snr_threshold_db": 50.0,
+  "multiscale_cutoffs_hz": [60000, 80000, 100000, 150000],
+  "multiscale_maximum_spread_km": 3.0,
+  "based_on": "manifesto v9 + campaign_v10_dense_grid_features + campaign_v11_remote_grid_features, max_features=0.3"
+}
