@@ -1,0 +1,41 @@
+{
+  "frozen_at": "2026-08-13T17:42:43-03:00",
+  "purpose": "Documenta o estado da linha de pesquisa 'fechar a lacuna de 90% em todas as classes/faixas de impedancia' apos a rodada v18-v21. NAO E uma promocao a producao -- o modelo ativo continua sendo o v17 (ver FINAL_PIPELINE_FREEZE_V17.json e classificador_config.master.json). Este documento existe para fixar um ponto de referencia claro antes de decidir os proximos passos (ver known_limitations e o plano de investigacao registrado na conversa), evitando perder o fio de qual e' o melhor candidato testado ate agora em meio a multiplas rodadas de experimentacao.",
+  "history": [
+    "v18: RandomForestClassifier em duas etapas via warm_start -- um bloco de arvores especialistas ve so o manifesto original (baixa-Z, congelado), um segundo bloco e adicionado depois vendo o dataset combinado (manifesto + malhas densas de alta-Z). Testadas variantes de proporcao especialista/geral (300/300, 400/200, 500/100, 400/300) e peso extra por classe (boost3, boost6) em AB/BC. Nenhuma variante isolada resolveu a lacuna; o real driver identificado foi a PROPORCAO de arvores gerais (menos arvores gerais = melhor AB, nao mais arvores especialistas).",
+    "v19: adiciona 684 casos de treino mirados na fronteira (180 AB + 180 BC em Rfault baixo 0.1-100ohm, 162 ABG + 162 BCG em Rfault alto 150-3000ohm), config 400 especialistas + 300 gerais + boost 3x em AB/BC. Resultado no teste de 10k: AB baixa-Z 69%->76%, BC baixa-Z 79%->86% (melhora real), mas ABG alta-Z 81%->79%, BCG alta-Z 86%->79% (piora) -- o boost 3x estava desequilibrando a fronteira alta-Z.",
+    "v20: mesmos dados do v19, mas SEM o boost 3x em AB/BC. ABG/BCG recuperaram parcialmente (79%->81% ambos), sem regredir AB/BC. Diagnostico de confusao (100% dos erros nas 4 celulas fracas sao trocas diretas AB<->ABG e BC<->BCG, nunca com outras classes) revelou que sao DOIS problemas fisicos distintos: (1) AB/BC em Rfault<=15ohm -- ruido numerico na feature de sequencia-zero, nao confusao fisica real; (2) ABG/BCG em Rfault>=900ohm -- degradacao gradual fisicamente esperada (corrente de terra tende a zero).",
+    "v21 (este freeze): adiciona 1.080 casos concentrados SO em ABG/BCG entre 900-3000ohm (540/classe, malha mais fina que o v19: 12 niveis de Rfault vs 5), sem boost. Ganho modesto e com retorno decrescente: BCG melhorou +2 a +5 pontos percentuais por nivel de Rfault, ABG quase nao se moveu apesar do volume 3.3x maior que v19. Confirma que aumentar volume de dados do mesmo tipo tem retorno decrescente para ABG especificamente -- motivou a decisao de investigar uma feature alternativa antes de gerar mais dados (ver known_limitations)."
+  ],
+  "classifier": {
+    "path": "C:/RESULTPESQUISA/retrain_v21_highz/classifier_calibrated/calibrated_classifier.joblib",
+    "sha256": "3551CFD95784773CD389B7D06DDB48B4CE2D49FEDA719454580C988B659F62AB",
+    "training": "Manifesto original (7.938 amostras via cache, condicao ideal) + malha densa v10 (8.100 casos) + malha densa v11 (4.320 casos) + malha de fronteira v19 (684 casos, AB/BC baixa-Z + ABG/BCG alta-Z) + malha concentrada v21 (1.080 casos, so ABG/BCG em 900-3000ohm). Total 22.770 amostras de treino. RandomForestClassifier em duas etapas via warm_start: 400 arvores especialistas (so manifesto) + 300 arvores gerais (dataset combinado), max_features=0.3, class_weight='balanced_subsample', sem boost por classe. Calibracao Platt/sigmoid sobre split de validacao (136 casos).",
+    "worst_robust_macro_f1": 0.8542,
+    "validated_rfault_range_ohm": [0.5, 3000.0],
+    "calibration_method": "sigmoid (Platt), scikit-learn CalibratedClassifierCV, cv=prefit",
+    "test_10k_report": "C:/RESULTPESQUISA/robust_test_v21_highz/report.json"
+  },
+  "test_10k_summary": {
+    "geral": "9559/10000 = 95.6%",
+    "por_classe_geral": {
+      "AG": "100.0%", "BG": "99.9%", "CG": "99.9%",
+      "AB": "88.5%", "BC": "92.1%", "CA": "97.7%",
+      "ABG": "90.4%", "BCG": "91.8%", "CAG": "98.1%", "ABC": "97.5%"
+    },
+    "celulas_abaixo_de_90_por_rfault": {
+      "AB": {"0.5ohm": "48%", "5ohm": "59%", "15ohm": "75%"},
+      "BC": {"0.5ohm": "65%", "5ohm": "78%", "15ohm": "84%"},
+      "ABG": {"1800ohm": "78%", "2800ohm": "78%", "3000ohm": "70%"},
+      "BCG": {"1800ohm": "87%", "2800ohm": "71%", "3000ohm": "65%"}
+    }
+  },
+  "known_limitations": [
+    "NAO RESOLVIDO -- ABG/BCG em Rfault alto (>=1800 ohm): degradacao gradual confirmada em duas rodadas seguidas de mais dados (v20->v21) com retorno decrescente (BCG melhorou pouco, ABG quase nao mudou apesar de 3.3x mais dados de treino nessa faixa). Hipotese de trabalho: proximo do limite fisico de separabilidade entre falta fase-fase-terra e fase-fase pura quando a resistencia de falta e muito alta (corrente de terra pequena). Proximo passo decidido: testar features alternativas (janela de integracao maior, sequencia-zero normalizada pelo ruido de base, assimetria entre fases sas) num lote pequeno de diagnostico ANTES de gerar mais dados em escala -- ver plano de pesquisa da sessao.",
+    "NAO RESOLVIDO (fora de escopo atual por decisao do usuario) -- AB/BC em Rfault muito baixo (<=15 ohm): diagnostico de features (diagnose_ab_abg_features.py) mostrou que a causa NAO e confusao fisica real com ABG/BCG, e sim instabilidade numerica na feature mais discriminativa (sequence_ratio__BEA_I_zero) nesse regime -- desvio-padrao da ordem da propria media em faltas quase solidas. Mais dados no mesmo formato nao ajudam; precisaria de uma feature mais robusta nesse regime. Deprioridade explicitamente porque faltas de alta impedancia sao o cenario de maior valor pratico (vegetacao, solo seco), enquanto faltas quase solidas ja sao bem detectadas por protecao convencional.",
+    "O regressor de sanidade de distancia (distance_sanity_regressor.joblib) NAO foi retreinado com nenhuma das malhas de alta impedancia desta rodada (v10, v11, v19, v21) -- mesma ressalva ja registrada no freeze do v17.",
+    "Teste de 10k casos e uma bateria informal pos-treino (nao e campanha cega oficial); usa o mesmo padrao de pool de modelos de linha reutilizados (robust_test_pooled.py) das rodadas anteriores, mas os casos em si sao gerados independentemente do treino."
+  ],
+  "policy": "Modelo experimental de pesquisa. NAO promovido a producao -- classificador ativo continua sendo v17 (robust_classifier_v17_calibrated.joblib). Antes de gerar mais dados de treino para ABG/BCG em alta-Z, seguir o gate de decisao definido: testar features alternativas em lote pequeno (30-40 casos/classe, mantendo os .pl4) e so prosseguir para geracao em escala se algum candidato mostrar AUC >= 0.90 em Rfault 1800-3000ohm no teste de viabilidade.",
+  "based_on": "modelos/FINAL_PIPELINE_FREEZE_V17.json"
+}

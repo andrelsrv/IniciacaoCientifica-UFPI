@@ -105,8 +105,14 @@ def infer_fault(
         # de ~1.5% para ~0.4% dos casos conclusivos, ao custo de rejeitar
         # raros casos corretos com atenuacao atipica. Ver freeze v10.
         if location["conclusive"] and sanity_artifact is not None:
+            # O regressor de sanidade nao foi retreinado desde o v12 (61
+            # atributos, sem phase_asymmetry) -- excluir as 2 colunas novas
+            # antes de prever, senao o vetor fica com o numero errado de
+            # atributos e ordem incompativel com o que o regressor espera.
+            sanity_mask = [not name.startswith("phase_asymmetry__") for name in features.names]
+            sanity_values = features.values[sanity_mask]
             regressor_estimate = float(
-                sanity_artifact["model"].predict(features.values.reshape(1, -1))[0]
+                sanity_artifact["model"].predict(sanity_values.reshape(1, -1))[0]
             )
             disagreement_km = abs(location["distance_from_PDT_km"] - regressor_estimate)
             max_disagreement = float(regressor_info["max_disagreement_km"])

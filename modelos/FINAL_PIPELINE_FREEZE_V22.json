@@ -1,0 +1,47 @@
+{
+  "frozen_at": "2026-08-13T21:06:35-03:00",
+  "corrected_at": "2026-08-13T22:15:00-03:00",
+  "purpose": "Documenta o novo patamar da linha de pesquisa 'fechar a lacuna de 90% em todas as classes/faixas de impedancia', apos a Fase 2/3 do plano de investigacao (teste barato de features candidatas -> validacao -> integracao). NAO E uma promocao a producao -- o modelo ativo continua sendo o v17. Este freeze substitui o v21 como referencia de pesquisa; trabalho segue combinando a feature nova com mais dados mirados em ABG (ver known_limitations).",
+  "correction_note": "A primeira versao deste freeze (frozen_at) tinha um bug real: feature_extraction.add_phase_asymmetry() inseria as 2 colunas novas no FINAL do vetor de atributos, mas a extracao ao vivo (usada na calibracao e no teste de 10k) as insere ANTES de arrival_delay_BEA_minus_PDT_us -- ordem diferente entre dado de treino (antigo, aumentado) e dado de teste/calibracao (novo, nativo). O modelo treinado nessa primeira rodada tinha as colunas 61-63 desalinhadas em relacao ao que foi usado para valida-lo, invalidando os numeros originalmente reportados (que mostravam ganho maior e nenhuma regressao em baixo-Z). Corrigido em feature_extraction.add_phase_asymmetry (insercao na posicao correta) e train_robust_classifier_v22.py (validation fixup usava a lista de nomes ja aumentada em vez da original, mesma classe de bug). Retreinado do zero com as duas correcoes; os numeros abaixo (test_10k_summary, classifier.sha256) sao os corretos, pos-correcao.",
+  "history": [
+    "v21 (ver FINAL_PIPELINE_FREEZE_V21.json): baseline anterior, mesma arquitetura (400 arvores especialistas + 300 gerais, warm_start, max_features=0.3), 61 atributos, sem a feature de assimetria de fases.",
+    "Fase 2 do plano (teste de viabilidade): diagnosticado que a causa da degradacao de ABG/BCG em alta-Z e' fisica (corrente de terra pequena), nao falta de dados -- confirmado por retorno decrescente em duas rodadas de geracao (v20->v21). Testados 3 candidatos de feature em lote pequeno (40 casos/classe, .pl4 retidos, gen_diagnostic_featuretest.py + test_candidate_features.py): 'assimetria entre fases sas' (max-min do rms_ratio das 3 correntes de um terminal) atingiu AUC=1.0 para AB-vs-ABG e BC-vs-BCG em Rfault 1800-3000ohm, muito acima do criterio de decisao (AUC>=0.90) e da feature atual isolada (AUC~0.55 para AB-vs-ABG). Verificado manualmente que nao e' confound de pool/distancia: ABG mostra sempre ratio>1 nas fases afetadas (corrente SOBE por causa do caminho de terra extra) enquanto AB mostra sempre ratio<1 (corrente cai, redistribuicao sem caminho extra) -- separacao limpa em toda a faixa testada.",
+    "Fase 3 (este freeze): a feature vencedora e' derivavel de atributos JA armazenados (rms_ratio por fase), entao foi possivel adicionar phase_asymmetry__PDT_I e phase_asymmetry__BEA_I a TODOS os datasets existentes (manifesto, v10, v11, v19, v21) sem resimular nenhum caso no ATP, via feature_extraction.add_phase_asymmetry(). Retreino v22 usa os mesmos dados do v21 (22.770 amostras) + as 2 features novas (63 atributos totais, FEATURE_VERSION=pilot_v6_phase_asymmetry). Descoberto e corrigido bug de ordem de colunas apos o primeiro treino (ver correction_note); numeros abaixo sao pos-correcao."
+  ],
+  "classifier": {
+    "path": "C:/RESULTPESQUISA/retrain_v22_phaseasym/classifier_calibrated/calibrated_classifier.joblib",
+    "sha256": "50EC0D9F06D66A67ECF75D00A886A7C27D7A9671E90DC513DB38DF965219F877",
+    "training": "Mesmos dados do v21 (manifesto 7.938 amostras + malhas v10/v11/v19/v21, total 22.770 amostras) reprocessados com 63 atributos (61 originais + phase_asymmetry__PDT_I + phase_asymmetry__BEA_I, derivados sem resimulacao via feature_extraction.add_phase_asymmetry, com a ordem de colunas corrigida). RandomForestClassifier em duas etapas via warm_start: 400 arvores especialistas (so manifesto) + 300 arvores gerais (dataset combinado), max_features=0.3, class_weight='balanced_subsample'. Calibracao Platt/sigmoid sobre split de validacao (136 casos).",
+    "worst_robust_macro_f1": 0.8609,
+    "feature_version": "pilot_v6_phase_asymmetry",
+    "n_features": 63,
+    "validated_rfault_range_ohm": [0.5, 3000.0],
+    "calibration_method": "sigmoid (Platt), scikit-learn CalibratedClassifierCV, cv=prefit",
+    "test_10k_report": "C:/RESULTPESQUISA/robust_test_v22_phaseasym/report.json"
+  },
+  "test_10k_summary": {
+    "geral": "9570/10000 = 95.7%",
+    "por_classe_geral": {
+      "AG": "100.0%", "BG": "100.0%", "CG": "99.9%",
+      "AB": "87.9%", "BC": "91.5%", "CA": "97.6%",
+      "ABG": "91.2%", "BCG": "92.3%", "CAG": "98.3%", "ABC": "98.3%"
+    },
+    "comparacao_v21_v22_abg_bcg_por_rfault": {
+      "ABG": {"900ohm": "90%->90%", "1800ohm": "78%->79%", "2800ohm": "78%->79%", "3000ohm": "70%->72%"},
+      "BCG": {"900ohm": "96%->96%", "1800ohm": "87%->86%", "2800ohm": "71%->73%", "3000ohm": "65%->69%"}
+    },
+    "baixo_z_sem_regressao_apos_correcao": {
+      "AB_100ohm_ou_menos": "76%->76% (identico ao v21, o efeito colateral reportado antes da correcao era artefato do bug)",
+      "BC_100ohm_ou_menos": "85%->84% (praticamente identico)"
+    }
+  },
+  "known_limitations": [
+    "PARCIALMENTE RESOLVIDO (ganho modesto, nao o suficiente) -- ABG/BCG em Rfault alto: apos a correcao do bug de ordem de colunas, o ganho real da feature de assimetria de fases e' bem mais modesto do que a primeira medicao (com bug) sugeria. BCG em 3000ohm foi de 65% para 69% (nao 75% como reportado antes da correcao); ABG em 3000ohm foi de 70% para 72%. Nenhuma das duas classes chega a 90% acima de 900-1800ohm. Sem efeito colateral negativo em AB/BC (que a versao com bug erroneamente mostrava).",
+    "Proximo passo aprovado pelo usuario e em andamento: gerar mais dados de treino mirados especificamente em ABG (peso maior, ja que respondeu menos que BCG a feature nova) combinados com as 63 features -- ver campaign_v23_abg_focus.",
+    "Mesma ressalva do v21: regressor de sanidade de distancia nao retreinado com nenhuma malha de alta impedancia desta rodada.",
+    "Teste de 10k casos e' bateria informal pos-treino, nao campanha cega oficial.",
+    "LICAO METODOLOGICA registrada: uma augmentacao de features feita fora do pipeline principal de extracao (post-hoc, sobre dados ja salvos) precisa ter a MESMA ordem de colunas que a extracao ao vivo produz, nao so o mesmo CONJUNTO de colunas -- um teste de igualdade de nomes (`if names != feature_names: raise`) pegou o erro na segunda tentativa (v23), mas na primeira tentativa (so dados antigos, todos com o mesmo erro de ordem, portanto 'consistentes' entre si) o teste nao pegou nada, e o modelo treinou silenciosamente com colunas trocadas em relacao a validacao/teste."
+  ],
+  "policy": "Modelo experimental de pesquisa. NAO promovido a producao -- classificador ativo continua v17. Proximo passo aprovado pelo usuario: gerar mais dados mirados em ABG (peso maior que BCG) e retreinar combinando com as 63 features -- ja em andamento (v23).",
+  "based_on": "modelos/FINAL_PIPELINE_FREEZE_V21.json"
+}

@@ -9,7 +9,7 @@ import numpy as np
 from signal_io import CANONICAL_CHANNELS, SignalData
 
 
-FEATURE_VERSION = "pilot_v5_tmax700ms"
+FEATURE_VERSION = "pilot_v6_phase_asymmetry"
 # Janela de busca ampliada: cobre praticamente toda a simulacao, em vez de
 # uma fatia fixa de 80-110ms. A linha de base (regime permanente) usa um
 # trecho bem no inicio, pois a fonte ja parte em regime (solucao fasorial
@@ -145,6 +145,21 @@ def extract_features(signals: SignalData) -> FeatureResult:
                 for component in ("zero", "positive", "negative")
             )
 
+    # Assimetria entre fases sas (max-min do rms_ratio das 3 fases de
+    # corrente de um terminal). Faltas fase-fase-terra (ex. ABG) drenam
+    # corrente extra pelo caminho de terra, fazendo as fases afetadas
+    # SUBIREM acima do valor pre-falta (ratio > 1); faltas fase-fase puras
+    # (ex. AB) redistribuem corrente sem caminho extra, tipicamente CAINDO
+    # abaixo do pre-falta (ratio < 1). Essa diferenca de sinal amplia a
+    # assimetria entre as fases faltosas exatamente onde a razao de
+    # sequencia-zero perde forca (Rfault alto, corrente de terra pequena) --
+    # validado empiricamente (AUC=1.0 em lote de diagnostico, Rfault
+    # 900-3000 ohm, ver diag_featuretest em RESULTPESQUISA).
+    for terminal, current_offset in (("PDT", 6), ("BEA", 9)):
+        phase_ratios = rms_ratio[current_offset : current_offset + 3]
+        feature_values.append(float(np.max(phase_ratios) - np.min(phase_ratios)))
+        feature_names.append(f"phase_asymmetry__{terminal}_I")
+
     feature_values.append((float(time_s[bea]) - float(time_s[pdt])) * 1e6)
     feature_names.append("arrival_delay_BEA_minus_PDT_us")
     return FeatureResult(
@@ -154,3 +169,37 @@ def extract_features(signals: SignalData) -> FeatureResult:
         pdt_arrival_s=float(time_s[pdt]),
         bea_arrival_s=float(time_s[bea]),
     )
+
+
+def add_phase_asymmetry(values: np.ndarray, names: tuple[str, ...]) -> tuple[np.ndarray, tuple[str, ...]]:
+    """Deriva phase_asymmetry__{PDT,BEA}_I a partir de rms_ratio ja
+    presentes, sem precisar reprocessar o sinal bruto. Usada para trazer
+    datasets extraidos com uma FEATURE_VERSION anterior (sem essas 2
+    colunas) para o mesmo espaco de atributos da extracao atual, sem
+    resimular no ATP. Idempotente: se as colunas ja existirem, retorna os
+    dados inalterados. `values` pode ser 1D (um caso) ou 2D (N casos x
+    atributos), alinhado com `names`."""
+    if "phase_asymmetry__PDT_I" in names:
+        return values, names
+    values_2d = values if values.ndim == 2 else values[np.newaxis, :]
+    extra_cols = []
+    extra_names = []
+    for terminal in ("PDT", "BEA"):
+        phase_idx = [names.index(f"rms_ratio__{terminal}_I{p}_A") for p in ("A", "B", "C")]
+        phase_ratios = values_2d[:, phase_idx]
+        extra_cols.append(np.max(phase_ratios, axis=1) - np.min(phase_ratios, axis=1))
+        extra_names.append(f"phase_asymmetry__{terminal}_I")
+    extra_block = np.column_stack(extra_cols)
+    # Inserido na MESMA posicao que extract_features usa (antes de
+    # arrival_delay_BEA_minus_PDT_us), para que dados aumentados aqui e
+    # dados extraidos ao vivo fiquem com ordem de colunas identica --
+    # caso contrario um concat silenciosamente desalinha os atributos.
+    if "arrival_delay_BEA_minus_PDT_us" in names:
+        insert_at = names.index("arrival_delay_BEA_minus_PDT_us")
+    else:
+        insert_at = len(names)
+    augmented = np.hstack([values_2d[:, :insert_at], extra_block, values_2d[:, insert_at:]])
+    new_names = tuple(names[:insert_at]) + tuple(extra_names) + tuple(names[insert_at:])
+    if values.ndim == 1:
+        augmented = augmented[0]
+    return augmented, new_names
