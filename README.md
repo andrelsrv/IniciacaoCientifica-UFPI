@@ -98,46 +98,51 @@ vazamento em `src/manifest.py`). Detalhes completos, incluindo casos que
 falharam, estão em `resultados_experimentos/` e no histórico de versões
 abaixo.
 
-## Desempenho por classe e faixa de impedância (em andamento)
+## Desempenho por classe e faixa de impedância
 
-> **Nota**: esta tabela reflete um lote de testes de um modelo **experimental**
-> (candidato v20, ainda em ajuste), não o modelo em produção. Serve para
-> documentar o progresso do ajuste fino em direção à meta de 90%+ de acerto
-> em todas as classes e faixas de resistência de falta (Rfault). Teste: 10.000
-> casos gerados de forma independente (100 por classe × Rfault), nunca usados
-> no treino.
+> **Nota**: tabela do modelo **em produção (v23)**. Teste: 10.000 casos gerados
+> de forma independente (100 por classe × Rfault), nunca usados no treino.
+> Ver `modelos/FINAL_PIPELINE_FREEZE_V23.json` para o histórico completo.
 
 | Classe | Muito baixa<br>(≤15 Ω) | Baixa<br>(50-100 Ω) | Média<br>(300 Ω) | Alta<br>(900-1800 Ω) | Muito alta<br>(2800-3000 Ω) |
 |---|:---:|:---:|:---:|:---:|:---:|
 | `AG`  | 100% | 100% | 100% | 100% | 100% |
 | `BG`  | 100% | 100% | 100% | 100% | 100% |
 | `CG`  | 100% | 100% | 100% | 100% | 100% |
-| `AB`  | 🔴 61% | 100% | 100% | 100% | 100% |
-| `BC`  | 🔴 76% | 100% | 100% | 100% | 99% |
-| `CA`  | 🟡 93% | 100% | 100% | 100% | 100% |
-| `ABG` | 100% | 97% | 95% | 🟡 84% | 🔴 72% |
-| `BCG` | 100% | 100% | 98% | 🟡 89% | 🔴 64% |
-| `CAG` | 100% | 100% | 100% | 98% | 🟡 90% |
-| `ABC` | 100% | 100% | 100% | 100% | 🟡 88% |
+| `AB`  | 🔴 59% | 99% | 100% | 100% | 100% |
+| `BC`  | 🔴 71% | 100% | 100% | 100% | 97% |
+| `CA`  | 🟡 92% | 100% | 100% | 100% | 100% |
+| `ABG` | 100% | 98% | 99% | 🟡 88% | 🔴 78% |
+| `BCG` | 100% | 100% | 99% | 🟡 92% | 🔴 72% |
+| `CAG` | 100% | 100% | 100% | 🟡 98% | 🟡 92% |
+| `ABC` | 100% | 100% | 100% | 100% | 🟡 92% |
 
 🔴 abaixo de 80%&nbsp;&nbsp;🟡 80-89%&nbsp;&nbsp;(sem marcação = 90%+)
 
-**Padrão identificado**: os dois pontos fracos têm causas físicas distintas,
-não uma única "zona de fronteira":
+> ⚠️ **Importante sobre `Rfault` em faltas fase-fase**: `Rfault` só é
+> fisicamente aplicável a faltas que envolvem terra (`AG`/`BG`/`CG`/`ABG`/`BCG`/`CAG`).
+> Faltas puramente fase-fase (`AB`/`BC`/`CA`/`ABC`) não têm caminho para o
+> resistor de falta — na prática são sempre francas (~0 Ω). Ou seja, para essas
+> 4 classes, **só a coluna "muito baixa (≤15 Ω)" representa um cenário real**;
+> as demais colunas foram testadas por completude, mas não correspondem a
+> faltas fisicamente possíveis nessas classes. Isso significa que o desempenho
+> fraco de `AB`/`BC` nessa faixa (59%/71%) não é um canto de baixa prioridade —
+> é o único regime real dessas duas classes, e ainda não está resolvido.
 
-- **`AB`/`BC` em Rfault muito baixo (≤15 Ω)**: a feature mais discriminativa
-  (razão de sequência-zero da corrente) fica instável nesse regime — o
-  desvio-padrão chega a ser da ordem da própria média — mesmo em faltas
-  puramente fase-fase, sem ligação à terra. Não é confusão física real com
-  `ABG`/`BCG`; é ruído numérico na janela de transitório. Mais dados de
-  treino no mesmo formato não resolvem — é necessária uma feature mais
-  robusta nesse regime (ex: janela de integração maior).
+**Causas identificadas para os dois pontos fracos restantes:**
+
+- **`AB`/`BC` francas (Rfault≈0, coluna "muito baixa")**: a feature mais
+  discriminativa (razão de sequência-zero da corrente) fica instável nesse
+  regime — o desvio-padrão chega a ser da ordem da própria média. Não é
+  confusão física real com `ABG`/`BCG`; é ruído numérico na janela de
+  transitório. Prioridade elevada para trabalho futuro (única faixa real
+  dessas classes).
 - **`ABG`/`BCG` em Rfault alto (≥900 Ω)**: degradação gradual e fisicamente
   esperada — com resistência de falta muito alta, a corrente pelo caminho de
   terra tende a zero, aproximando o sinal do de uma falta `AB`/`BC` sem
-  aterramento. Mais dados de treino ajudam aqui, mas com retorno
-  decrescente; pode haver um limite físico de separabilidade nos extremos
-  (2800-3000 Ω).
+  aterramento. Uma feature nova (assimetria entre as fases sãs) e dados de
+  treino mirados trouxeram melhora real no v23, mas com retorno decrescente;
+  pode haver um limite físico de separabilidade nos extremos (2800-3000 Ω).
 
 ## Estrutura do projeto
 
@@ -263,7 +268,7 @@ forma, pois é o componente validado com maior robustez.
 |---|---|---|
 | Classificação (10 classes) | 15 – 600 km | limite físico usual de linha CA sem compensação série |
 | Localização | 15 – 600 km | teste cego oficial cobriu 15-450 km; 450-600 km revalidado informalmente |
-| Resistência de falta (Rfault) | 0,01 – 3000 Ω | de curto franco até falta de alta impedância (vegetação/solo seco) |
+| Resistência de falta (Rfault) | 0,01 – 3000 Ω para faltas com terra (`AG`/`BG`/`CG`/`ABG`/`BCG`/`CAG`); faltas puramente fase-fase (`AB`/`BC`/`CA`/`ABC`) são sempre francas (~0 Ω) | Rfault só tem caminho físico até o terra; faltas fase-fase não têm esse caminho |
 | Ângulo de incidência | 0° – 360° | a falta pode ocorrer em qualquer ponto do ciclo de 60 Hz |
 | Instante de fechamento (t_cl) | 0,025 – 0,675 s | livre dentro da simulação (Tmax=0,7s no template ATP) |
 
