@@ -1,0 +1,78 @@
+{
+  "frozen_at": "2026-08-14T08:19:30-03:00",
+  "purpose": "Promove o candidato v23 (ABG/BCG mirado + feature de assimetria de fases) a producao, substituindo o v17. Motivacao: melhoria real e verificada em ABG/BCG de alta impedancia (o ponto mais fraco do v17 e de todos os candidatos anteriores) sem regressao no restante do sistema, mesmo sem ainda atingir 90% de acerto em todas as celulas -- decisao do usuario de promover o melhor candidato disponivel e continuar melhorando a partir dele.",
+  "history": [
+    "v17 (ver FINAL_PIPELINE_FREEZE_V17.json): producao anterior. 61 atributos, max_features=0.3, sem malha de alta impedancia alem de v10/v11. AB=64% e BC=76% em baixa-Z eram os residuais conhecidos.",
+    "v18-v20: arquitetura de duas etapas via warm_start (arvores especialistas em baixa-Z + arvores gerais no dataset combinado), testadas variantes de proporcao de arvores e peso por classe. Concluido que a proporcao de arvores gerais (nao o peso por amostra) e' o driver real do comportamento em baixa-Z.",
+    "v21 (ver FINAL_PIPELINE_FREEZE_V21.json): malha concentrada em ABG/BCG (540 casos/classe, Rfault 900-3000ohm). Retorno decrescente confirmado -- ganho pequeno mesmo triplicando o volume de dados na mesma faixa.",
+    "Fase 2/3 do plano de investigacao: diagnosticado que a causa da degradacao de ABG/BCG em alta-Z e' fisica, nao falta de dado. Testada e validada (AUC=1.0 em lote de diagnostico) uma feature nova -- assimetria entre fases sas (max-min do rms_ratio das 3 correntes de um terminal) -- derivavel de atributos ja armazenados, sem resimulacao.",
+    "v22 (ver FINAL_PIPELINE_FREEZE_V22.json): integra a feature nova aos dados existentes (63 atributos). Um bug de ordem de colunas no primeiro treino foi descoberto e corrigido (documentado no proprio freeze do v22); os numeros finais mostraram ganho real porem modesto.",
+    "v23 (este freeze, EM PRODUCAO): adiciona 1.080 casos novos mirados em ABG (756, peso maior) e BCG (324, peso menor) em Rfault 900-3000ohm, combinados com as 63 features. ABG respondeu bem ao peso extra (900ohm cruzou 90%); BCG quase nao se moveu (recebeu menos dados novos)."
+  ],
+  "classifier": {
+    "path": "modelos/robust_classifier_v23_calibrated.joblib",
+    "sha256": "419D52E9D203BC901041AB4D23C79F12D3998F34761B8C676CE1B2C23B858E3F",
+    "training": "Manifesto original (7.938 amostras via cache) + malha densa v10 (8.100 casos) + malha densa v11 (4.320 casos) + malha de fronteira v19 (684 casos) + malha concentrada v21 (1.080 casos, ABG/BCG 900-3000ohm) + malha v23 (1.080 casos, ABG peso 756/BCG peso 324, mesma faixa). Total 23.850 amostras de treino, 63 atributos (61 originais + phase_asymmetry__PDT_I + phase_asymmetry__BEA_I). RandomForestClassifier em duas etapas via warm_start: 400 arvores especialistas (so manifesto) + 300 arvores gerais (dataset combinado), max_features=0.3, class_weight='balanced_subsample'. Calibracao Platt/sigmoid sobre split de validacao (136 casos).",
+    "feature_version": "pilot_v6_phase_asymmetry",
+    "n_features": 63,
+    "worst_robust_macro_f1": 0.8521,
+    "validated_rfault_range_ohm": [0.5, 3000.0],
+    "calibration_method": "sigmoid (Platt), scikit-learn CalibratedClassifierCV, cv=prefit",
+    "test_10k_report": "C:/RESULTPESQUISA/robust_test_v23_abgfocus/report.json"
+  },
+  "test_10k_summary": {
+    "geral": "9576/10000 = 95.8%",
+    "por_classe_geral": {
+      "AG": "100.0%", "BG": "100.0%", "CG": "99.9%",
+      "AB": "87.6%", "BC": "90.8%", "CA": "97.6%",
+      "ABG": "92.7%", "BCG": "92.6%", "CAG": "98.2%", "ABC": "98.2%"
+    },
+    "celulas_abaixo_de_90_por_faixa": {
+      "AB": {"muito_baixa_menor_15ohm": "59%"},
+      "BC": {"muito_baixa_menor_15ohm": "71%"},
+      "CA": {"muito_baixa_menor_15ohm": "92% (limite)"},
+      "ABG": {"alta_900_1800ohm": "88%", "muito_alta_2800_3000ohm": "78%"},
+      "BCG": {"alta_900_1800ohm": "92% (limite)", "muito_alta_2800_3000ohm": "72%"},
+      "CAG": {"alta_900_1800ohm": "98% (limite)", "muito_alta_2800_3000ohm": "92% (limite)"},
+      "ABC": {"muito_alta_2800_3000ohm": "92% (limite)"}
+    },
+    "evolucao_v17_para_v23_pontos_fracos": {
+      "AB_baixa_Z": "64% (v17) -> 59% em Rfault<=15ohm no v23 (faixa mais estreita testada agora; sem melhora aqui, fora de escopo desta rodada)",
+      "BC_baixa_Z": "76% (v17) -> 71% em Rfault<=15ohm no v23 (idem)",
+      "ABG_alta_Z": "nao testado sistematicamente no v17 -> 78% em 2800-3000ohm no v23",
+      "BCG_alta_Z": "nao testado sistematicamente no v17 -> 72% em 2800-3000ohm no v23"
+    }
+  },
+  "localizer": {
+    "validated_distance_range_km": [15, 600],
+    "note": "Sem alteracoes desde o v17 (o trabalho do v18-v23 foi inteiramente no classificador). Ver history/v12 para o algoritmo de localizacao por ondas viajantes.",
+    "snr_threshold_db": 50.0,
+    "safe_event_window_s": [0.025, 0.675],
+    "maximum_search_distance_km": 620.0
+  },
+  "simulation_template": {
+    "tmax_s": 0.7,
+    "note": "Sem alteracoes desde o v12. Ver history/v12 para o limite do solver ATP."
+  },
+  "traveling_wave_velocity_km_per_us": 0.29927465071442727,
+  "adaptive_snr_threshold_db": 50.0,
+  "multiscale_cutoffs_hz": [60000, 80000, 100000, 150000],
+  "multiscale_maximum_spread_km": 3.0,
+  "distance_sanity_check": {
+    "path": "distance_sanity_regressor.joblib",
+    "sha256": "6813F3D5FCF3466D543A8B451F76A70922AC1DBC611ADF5764D65C3BF94B2C15",
+    "model": "RandomForestRegressor(n_estimators=400, min_samples_leaf=2)",
+    "training": "Sem alteracoes desde o v12 -- reutiliza o mesmo regressor (1737 casos, holdout MAE 24.81km, R2 0.9566). NAO foi retreinado com nenhuma das malhas de alta impedancia geradas de v10 a v23. Espera 61 atributos (sem phase_asymmetry) -- infer_fault.py exclui as 2 colunas novas antes de chamar este regressor especificamente.",
+    "max_disagreement_km": 100.0,
+    "note": "Retreino deste regressor incluindo a faixa de alta impedancia fica como trabalho futuro."
+  },
+  "known_limitations": [
+    "AB/BC em Rfault muito baixo (<=15 ohm): 59%/71% no teste de 10k. Diagnostico (diagnose_ab_abg_features.py) mostrou que a causa e' ruido numerico na feature de sequencia-zero nesse regime, nao confusao fisica -- deprioridade por decisao do usuario (foco em alta impedancia, de maior valor pratico). Nao resolvido nesta promocao.",
+    "ABG/BCG em Rfault alto (>=1800 ohm): 78-88% dependendo da classe/faixa, ainda abaixo da meta de 90%. Melhorou de forma real e mensuravel em relacao ao v17/v21 (feature de assimetria de fases + dados mirados), mas o retorno de mais dados esta ficando decrescente (ver historico v20->v21->v23). Trabalho em andamento: possivelmente mais dados mirados em BCG especificamente (recebeu menos volume nesta rodada que ABG).",
+    "O regressor de sanidade de distancia NAO foi retreinado com nenhuma malha de alta impedancia gerada de v10 a v23 -- mesma ressalva ja registrada desde o v17.",
+    "O teste de 10k casos e' uma bateria informal pos-treino (nao e campanha cega oficial); usa o padrao de pool de modelos de linha reutilizados (robust_test_pooled.py).",
+    "A promocao ocorre com conhecimento de que nem todas as celulas atingem 90% -- decisao explicita do usuario de promover o melhor candidato disponivel e continuar melhorando incrementalmente a partir da producao, em vez de esperar um candidato perfeito."
+  ],
+  "policy": "EM PRODUCAO. Promovido pelo usuario em 2026-08-14 como o melhor candidato disponivel, mesmo sem atingir a meta de 90% em todas as classes/faixas de impedancia. Trabalho de melhoria continua a partir deste ponto (proximo passo cogitado: mais dados mirados em BCG).",
+  "based_on": "modelos/FINAL_PIPELINE_FREEZE_V22.json"
+}
