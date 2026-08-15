@@ -1,0 +1,80 @@
+{
+  "versioning_note": "REORGANIZACAO DE VERSIONAMENTO (2026-08-15): o projeto acumulou 31 nomes sequenciais (v1-v29 de producao/pesquisa, incluindo v2-v13, v17, v21-v23, v29 como marcos reais e v14-v31 como experimentos internos) -- confuso demais pra continuar. A partir de agora, adotamos 'Geracoes': G1 = toda a linhagem anterior (FINAL_PIPELINE_FREEZE.json ate FINAL_PIPELINE_FREEZE_V29.json), rodada com um bug de fisica real (ver purpose abaixo). G2.0 (este arquivo) = primeira promocao com a fisica corrigida -- novo ponto de partida. Promocoes futuras incrementam (G2.1, G2.2...); experimentos de pesquisa que nao viram producao passam a usar nomes descritivos, nao mais um numero sequencial proprio.",
+  "frozen_at": "2026-08-15T11:18:24-03:00",
+  "purpose": "Promove a G2.0 a producao, substituindo a ultima versao da geracao G1 (antiga 'v23'/'v29'). Consolida a correcao de um erro de fisica real (faltas fase-fase simuladas com uma resistencia que nao existe de verdade nesse tipo de falta) e uma rodada extensa de investigacao sobre o ponto mais fraco do sistema (AB/BC em faltas francas).",
+  "history": [
+    "Geracao G1 (v1 ate v29, ver FINAL_PIPELINE_FREEZE.json / V12 / V17 / V23 / V29): nao sabia do bug de topologia de Rfault em faltas fase-fase -- todas as faltas AB/BC/CA/ABC de treino e teste, em todas as versoes da G1, foram simuladas com um resistor entre as fases que fisicamente nao existe (confirmado com o orientador: so faltas com terra tem caminho ate o Rfault). Ultima producao da G1 (antiga 'v23'): numeros inflados -- ~40% dos casos de teste de faltas fase-fase nao representavam cenarios reais.",
+    "Descoberta e correcao da topologia (2026-08-14): fault_case_generator.py corrigido para ligar as fases diretamente (bolted, sem resistor) em AB/BC/CA/ABC, igual ao template de referencia do ATPDraw. O gerador agora rejeita com erro qualquer Rfault>0 passado para essas 4 classes.",
+    "Diagnostico da causa raiz de AB/BC: convergem com ABG/BCG em alta impedancia porque e' o MESMO fenomeno fisico (corrente de terra pequena) visto do lado oposto -- nao um problema separado de ruido numerico como se pensava antes.",
+    "6 abordagens testadas para resolver AB/BC, nenhuma decisiva: (1) rebalancear volume de dado de ABG/BCG/CAG -- sem efeito; (2) peso 3x extra em AB/BC no modelo geral -- sem efeito; (3) feature de pureza espectral do sinal de sequencia-zero -- ganho pequeno (+1-2 pontos); (4) especialista binario (AB/ABG) treinado no dataset COMPLETO -- piorou (56%->51%); (5) peso extra no especialista -- sem efeito adicional; (6) especialista treinado SO na faixa dificil de ABG (>=300ohm) -- piorou ainda mais (56%->48%). Confirma um teto real de informacao com as 63 features atuais, nao um problema de receita de treino. Proximo passo recomendado: feature baseada em onda viajante de sequencia-zero no instante da falta (nao testada ainda, precisa supervisao).",
+    "Especialista CA/CAG (unico que funcionou): CA nao sofre do mesmo problema que AB/BC na mesma intensidade. Um classificador binario extra, consultado so quando a previsao geral cai em CA ou CAG, melhorou essa classe de ~88-89% para 94-97% sem piorar nada. Fica ativo na producao.",
+    "Geracao noturna (2026-08-14/15, ~5h22min sem supervisao): 41.400 casos novos -- 32.400 densificando ABG/BCG/CAG (Rfault 0.01-3000ohm, 18 niveis x 24 angulos x 25 repeticoes) + reforco fase-fase (bug reduziu de 9.000 para 300 casos, sem impacto esperado dado o item anterior). Causou um efeito colateral: volume de CAG novo (10.800 casos) desequilibrou o especialista CA/CAG (que so recebeu 75 casos novos de CA por causa do bug), derrubando CA de 94.7% para 87.5%. Corrigido subamostrando o lado aterrado do especialista (max 5x o tamanho do lado franca) -- CA recuperou para 90.3%, nao voltou ao pico de 94.7% mas ficou saudavel."
+  ],
+  "classifier": {
+    "path": "modelos/robust_classifier_G2.0_calibrated.joblib",
+    "sha256": "0D3B29E4F1F8AF85C2DEFD0A15B6EBC500A5FEC412AADC50CF9A9014ADC0ED74",
+    "training": "Manifesto original + malhas historicas da G1 (com faltas fase-fase contaminadas expurgadas -- 5.256 casos removidos) + malha bolted (4.800 casos, topologia correta AB/BC/CA/ABC) + malha grounded baixa-Z (1.512 casos) + malha grounded densa noturna (32.400 casos, ABG/BCG/CAG) + reforco fase-fase noturno (300 casos). Total 54.764 amostras, 63 atributos (61 originais + phase_asymmetry__PDT_I + phase_asymmetry__BEA_I). RandomForestClassifier em duas etapas via warm_start (400 arvores especialistas + 300 gerais, max_features=0.3) + especialista binario extra (300 arvores) so para CA/CAG, com o lado aterrado subamostrado para no maximo 5x o tamanho do lado franca.",
+    "feature_version": "pilot_v6_phase_asymmetry",
+    "n_features": 63,
+    "worst_robust_macro_f1": 0.6671,
+    "rfault_note": "Faltas com terra (AG/BG/CG/ABG/BCG/CAG) aceitam Rfault ate 3000ohm. Faltas fase-fase (AB/BC/CA/ABC) exigem Rfault=0.0 -- fault_case_generator.py rejeita com erro qualquer valor positivo para essas classes.",
+    "calibration_method": "sigmoid (Platt), scikit-learn CalibratedClassifierCV, cv=prefit",
+    "specialist_classifiers": {
+      "AB_ABG": "treinado mas NAO usado em inferencia -- testado com dataset completo e com faixa dificil isolada, ambos pioraram AB. Mantido no artefato so para referencia/pesquisa futura.",
+      "BC_BCG": "treinado mas NAO usado em inferencia (mesma razao)",
+      "CA_CAG": "USADO em inferencia -- arbitra a decisao final quando a previsao geral e' CA ou CAG"
+    },
+    "test_12k_report": "C:/RESULTPESQUISA/robust_test_v31_12k/report.json"
+  },
+  "test_summary": {
+    "geral_12000_casos": "10855/12000 = 90.5%",
+    "por_classe_geral": {
+      "AG": "100.0%", "BG": "100.0%", "CG": "99.9%",
+      "AB": "56.9%", "BC": "71.4%", "CA": "90.3%",
+      "ABG": "90.9%", "BCG": "96.1%", "CAG": "99.0%", "ABC": "100.0%"
+    },
+    "por_classe_faixa_relevante": {
+      "AB": "57% (franca, unico cenario real)",
+      "BC": "71% (franca, unico cenario real)",
+      "CA": "90% (franca, unico cenario real)",
+      "ABC": "100% (franca, unico cenario real)",
+      "ABG": "99% baixa-Z / 83% alta-Z (>=300ohm)",
+      "BCG": "100% baixa-Z / 92% alta-Z (>=300ohm)",
+      "CAG": "100% baixa-Z / 98% alta-Z (>=300ohm)"
+    },
+    "teste_cego_oficial": "66/70 = 94.3% (condicao ideal) -- ver blind_test_v29_full.json (mesmo classificador base desta versao, pre-ajuste fino do especialista CA; diferenca esperada minima, ja que o ajuste so afeta o par CA/CAG)"
+  },
+  "localizer": {
+    "validated_distance_range_km": [15, 600],
+    "note": "Sem alteracoes desde a G1 (todo o trabalho desta rodada foi no classificador). Ver historico v12 para o algoritmo de localizacao por ondas viajantes.",
+    "snr_threshold_db": 50.0,
+    "safe_event_window_s": [0.025, 0.675],
+    "maximum_search_distance_km": 620.0
+  },
+  "simulation_template": {
+    "tmax_s": 0.7,
+    "note": "Sem alteracoes desde a G1. Ver historico v12 para o limite do solver ATP."
+  },
+  "traveling_wave_velocity_km_per_us": 0.29927465071442727,
+  "adaptive_snr_threshold_db": 50.0,
+  "multiscale_cutoffs_hz": [60000, 80000, 100000, 150000],
+  "multiscale_maximum_spread_km": 3.0,
+  "distance_sanity_check": {
+    "path": "distance_sanity_regressor.joblib",
+    "sha256": "6813F3D5FCF3466D543A8B451F76A70922AC1DBC611ADF5764D65C3BF94B2C15",
+    "model": "RandomForestRegressor(n_estimators=400, min_samples_leaf=2)",
+    "training": "Sem alteracoes desde a G1 -- reutiliza o mesmo regressor (1737 casos, holdout MAE 24.81km, R2 0.9566). NAO foi retreinado com nenhuma malha de alta impedancia gerada desde entao. Espera 61 atributos (sem phase_asymmetry) -- infer_fault.py exclui as 2 colunas novas antes de chamar este regressor.",
+    "max_disagreement_km": 100.0,
+    "note": "Retreino deste regressor incluindo a faixa de alta impedancia fica como trabalho futuro."
+  },
+  "known_limitations": [
+    "PRIORIDADE MAXIMA -- AB/BC francas (unico cenario real dessas classes): 56.9%/71.4%. Investigado a fundo com 6 abordagens diferentes de treino, nenhuma resolveu -- ver history acima. Evidencia forte de teto real de informacao nas 63 features atuais. Proximo passo recomendado (nao testado, precisa supervisao humana): feature baseada em onda viajante de sequencia-zero no instante da falta, capturando informacao de propagacao/tempo em vez de so magnitude/razao em regime permanente.",
+    "ABG em Rfault alto (>=300ohm): 83%, ainda abaixo de 90%. BCG (92%) e CAG (98%) estao melhor.",
+    "CA recuperou para 90.3% apos o ajuste de subamostragem do especialista, mas nao voltou ao pico de 94.7% visto antes da geracao noturna -- pode valer revisitar o parametro MAX_GROUNDED_RATIO (hoje 5x) se motivar nova rodada.",
+    "Especialistas AB_ABG e BC_BCG treinados mas EXPLICITAMENTE DESATIVADOS na inferencia -- mantidos no artefato para referencia, nao para uso em producao.",
+    "Regressor de sanidade de distancia nao retreinado com nenhuma malha de alta impedancia desde a G1.",
+    "Teste de 12k casos e bateria informal pos-treino, nao campanha cega oficial completa."
+  ],
+  "policy": "EM PRODUCAO. Promovido pelo usuario em 2026-08-15. AB/BC seguem como a prioridade maxima de pesquisa -- meta explicita do usuario e' trazer essas duas classes para uma boa porcentagem de assertividade, nao aceitar o teto atual como definitivo.",
+  "based_on": "modelos/FINAL_PIPELINE_FREEZE_V29.json"
+}
