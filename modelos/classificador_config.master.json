@@ -1,4 +1,4 @@
 {
-  "classifier": "robust_classifier_v23_calibrated.joblib",
-  "freeze": "FINAL_PIPELINE_FREEZE_V23.json"
+  "classifier": "robust_classifier_v29_calibrated.joblib",
+  "freeze": "FINAL_PIPELINE_FREEZE_V29.json"
 }

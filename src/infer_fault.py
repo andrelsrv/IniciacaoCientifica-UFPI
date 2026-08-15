@@ -59,6 +59,32 @@ def infer_fault(
     best = int(np.argmax(probabilities))
     predicted_class = str(artifact["classifier"].classes_[best])
     vote_fraction = float(probabilities[best])
+
+    # Arbitragem por especialista (v27+): o classificador geral (10 classes)
+    # confunde faltas francas (AB/BC/CA) com suas versoes aterradas em alta
+    # impedancia (ABG/BCG/CAG) mais do que deveria, porque precisa dividir
+    # capacidade com as outras 8 classes. Um classificador binario pequeno,
+    # focado so nesse par, chega a acertar 20-30 pontos percentuais a mais
+    # no mesmo par (validado em lote de diagnostico). Quando a previsao
+    # geral cai numa dessas 6 classes, o especialista correspondente da' a
+    # palavra final.
+    specialists = artifact.get("specialists")
+    # SO CA/CAG usa o especialista. Testado tambem para AB/ABG e BC/BCG,
+    # mas piorou os dois (56%->51%, 67%->61%) em vez de ajudar -- mesmo
+    # com peso extra explicito para o lado franca. CA/CAG melhorou bastante
+    # (89%->97%) e nao regrediu com o mesmo mecanismo. Ver
+    # retrain_v27_specialists e retrain_v28_weighted_specialists para o
+    # historico completo dessa investigacao.
+    specialist_pair_by_class = {
+        "CA": "CA_CAG", "CAG": "CA_CAG",
+    }
+    if specialists and predicted_class in specialist_pair_by_class:
+        spec = specialists[specialist_pair_by_class[predicted_class]]
+        spec_probabilities = spec.predict_proba(features.values.reshape(1, -1))[0]
+        spec_best = int(np.argmax(spec_probabilities))
+        predicted_class = str(spec.classes_[spec_best])
+        vote_fraction = float(spec_probabilities[spec_best])
+
     snr_db = estimate_prefault_snr_db(signals)
 
     event_lo, event_hi = LOCATION_SAFE_EVENT_WINDOW_S

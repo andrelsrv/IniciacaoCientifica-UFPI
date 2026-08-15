@@ -1,0 +1,83 @@
+{
+  "frozen_at": "2026-08-14T23:34:51-03:00",
+  "purpose": "Promove o v29 a producao, substituindo o v23. Corrige um problema de fisica real descoberto nesta rodada (faltas fase-fase eram simuladas com resistencia de falta que nao existe no circuito de referencia do ATPDraw -- confirmado pelo orientador), rebalanceia o treino de faltas com terra em baixa impedancia, e adiciona um classificador especialista (segunda opiniao) so para o par CA/CAG, que melhorou de 87-89% para 95-97% sem piorar nenhuma outra classe.",
+  "history": [
+    "v23 (ver FINAL_PIPELINE_FREEZE_V23.json): producao anterior. Numeros inflados -- 40% dos casos de teste de faltas fase-fase (AB/BC/CA/ABC) usavam uma resistencia de falta que fisicamente nao existe nesse tipo de falta (confirmado com o orientador: Rfault so tem caminho ate faltas com terra).",
+    "Descoberta e correcao da topologia: fault_case_generator.py tinha um bug de modelagem -- inseria um resistor entre as fases para AB/BC/CA/ABC, mas o template de referencia do ATPDraw liga essas fases diretamente, sem resistor. Corrigido para ligacao direta (bolted) e o gerador agora rejeita com erro se alguem passar Rfault>0 para essas 4 classes.",
+    "v24 (topologia corrigida, sem ajustes extras): expurgou 5.256 casos de treino contaminados (fase-fase com Rfault>0.5ohm) e adicionou 4.800 casos novos com a topologia correta (1.200/classe). Resultado honesto: AB=55.6%, BC=66.2%, CA=88.7%, ABC=100% -- caiu em relacao ao v23 so porque o v23 estava contando cenarios que nao existem.",
+    "Diagnostico da causa raiz: AB(franca) e' confundido com ABG(alta impedancia) porque os dois convergem para o mesmo sinal eletrico quando a corrente de terra fica pequena -- e' o MESMO fenomeno fisico do problema ABG/BCG em alta-Z ja conhecido, nao um problema separado de ruido numerico como se pensava antes.",
+    "v25: tentativa de rebalancear o treino de ABG/BCG/CAG (que tinha 97% dos exemplos em alta impedancia, quase nada em baixa) adicionando 1.512 casos de baixa impedancia. Testado em lote barato (nao 10k): sem efeito mensuravel em AB/BC.",
+    "v26: tentativa de dar peso 3x extra as amostras de AB/BC no treino do modelo geral. Testado em lote barato: sem efeito (AB identico, BC dentro do ruido).",
+    "Investigacao de feature nova (pureza espectral do sinal de sequencia-zero): testada contra o par correto (AB franca vs ABG em 900-3000ohm de verdade, nao um ABG facil por engano como na primeira tentativa). Ganho pequeno (79.5%->80.3% em AB, 87.3%->88.9% em BC) -- nao decisivo.",
+    "Achado chave: um classificador binario pequeno, focado SO em AB-vs-ABG (sem competir com as outras 8 classes), ja acerta 79.5% usando as MESMAS features que o modelo geral so acerta 56% -- confirma que a informacao existe, mas o modelo de 10 classes nao aloca capacidade suficiente para essa distincao especifica.",
+    "v27: especialistas binarios (AB/ABG, BC/BCG, CA/CAG) treinados com o dataset completo e usados como segunda opiniao. CA/CAG melhorou muito (89%->97%), mas AB/BC pioraram (56%->51%, 67%->61%) -- o especialista herdou o mesmo vies do modelo geral pro lado aterrado.",
+    "v28: peso extra (2x) para o lado franca nos especialistas AB/ABG e BC/BCG. Sem efeito -- terceira tentativa consecutiva de ajuste de peso que nao move AB/BC, evidencia forte de um teto real de informacao/vies estrutural, nao um problema de receita de treino.",
+    "v29 (este freeze, EM PRODUCAO): usa o especialista SO para CA/CAG (que funciona), deixa AB/BC com o modelo geral sem arbitragem (evita a regressao). Resultado liquido: CA melhora, nada piora. Validado em 12.000 casos: 90.6% geral."
+  ],
+  "classifier": {
+    "path": "modelos/robust_classifier_v29_calibrated.joblib",
+    "sha256": "AE0494C50C0BFC36EBA878A43595A87C39BED71C93C08F4310DAB0C492E43E94",
+    "training": "Manifesto original + malhas v10/v11/v19/v21/v23 (com faltas fase-fase contaminadas expurgadas, 5.256 casos removidos) + malha v24 (4.800 casos, topologia bolted correta para AB/BC/CA/ABC) + malha v25 (1.512 casos, ABG/BCG/CAG em baixa impedancia). Total 22.064 amostras, 63 atributos (61 originais + phase_asymmetry__PDT_I + phase_asymmetry__BEA_I). RandomForestClassifier em duas etapas via warm_start (400 arvores especialistas + 300 gerais, max_features=0.3) + especialista binario extra RandomForestClassifier(300 arvores) so para CA/ABG, usado em cascata (infer_fault.py consulta o especialista quando a previsao geral cai em CA ou CAG).",
+    "feature_version": "pilot_v6_phase_asymmetry",
+    "n_features": 63,
+    "worst_robust_macro_f1": 0.6695,
+    "validated_rfault_range_ohm": [0.01, 3000.0],
+    "rfault_note": "Faltas com terra (AG/BG/CG/ABG/BCG/CAG) aceitam Rfault ate 3000ohm. Faltas fase-fase (AB/BC/CA/ABC) exigem Rfault=0.0 -- fault_case_generator.py rejeita com erro qualquer valor positivo para essas classes.",
+    "calibration_method": "sigmoid (Platt), scikit-learn CalibratedClassifierCV, cv=prefit",
+    "specialist_classifiers": {
+      "AB_ABG": "treinado mas NAO usado em inferencia (piorou AB/BC no teste, ver history)",
+      "BC_BCG": "treinado mas NAO usado em inferencia (idem)",
+      "CA_CAG": "USADO em inferencia -- arbitra a decisao final quando a previsao geral e' CA ou CAG"
+    },
+    "test_12k_report": "C:/RESULTPESQUISA/robust_test_v29_12k/report.json"
+  },
+  "test_summary": {
+    "geral_12000_casos": "10878/12000 = 90.6%",
+    "por_classe_geral": {
+      "AG": "100.0%", "BG": "100.0%", "CG": "99.8%",
+      "AB": "56.5%", "BC": "71.2%", "CA": "94.7%",
+      "ABG": "89.8%", "BCG": "95.5%", "CAG": "99.0%", "ABC": "100.0%"
+    },
+    "por_classe_faixa_relevante": {
+      "AB": "56% (franca, unico cenario real)",
+      "BC": "71% (franca, unico cenario real)",
+      "CA": "95% (franca, unico cenario real)",
+      "ABC": "100% (franca, unico cenario real)",
+      "ABG": "99% baixa-Z / 81% alta-Z (>=300ohm)",
+      "BCG": "100% baixa-Z / 91% alta-Z (>=300ohm)",
+      "CAG": "100% baixa-Z / 98% alta-Z (>=300ohm)"
+    }
+  },
+  "localizer": {
+    "validated_distance_range_km": [15, 600],
+    "note": "Sem alteracoes desde o v17 (todo o trabalho de v18-v29 foi no classificador). Ver history/v12 para o algoritmo de localizacao por ondas viajantes.",
+    "snr_threshold_db": 50.0,
+    "safe_event_window_s": [0.025, 0.675],
+    "maximum_search_distance_km": 620.0
+  },
+  "simulation_template": {
+    "tmax_s": 0.7,
+    "note": "Sem alteracoes desde o v12. Ver history/v12 para o limite do solver ATP."
+  },
+  "traveling_wave_velocity_km_per_us": 0.29927465071442727,
+  "adaptive_snr_threshold_db": 50.0,
+  "multiscale_cutoffs_hz": [60000, 80000, 100000, 150000],
+  "multiscale_maximum_spread_km": 3.0,
+  "distance_sanity_check": {
+    "path": "distance_sanity_regressor.joblib",
+    "sha256": "6813F3D5FCF3466D543A8B451F76A70922AC1DBC611ADF5764D65C3BF94B2C15",
+    "model": "RandomForestRegressor(n_estimators=400, min_samples_leaf=2)",
+    "training": "Sem alteracoes desde o v12 -- reutiliza o mesmo regressor (1737 casos, holdout MAE 24.81km, R2 0.9566). NAO foi retreinado com nenhuma malha de alta impedancia de v10 a v29. Espera 61 atributos (sem phase_asymmetry) -- infer_fault.py exclui as 2 colunas novas antes de chamar este regressor.",
+    "max_disagreement_km": 100.0,
+    "note": "Retreino deste regressor incluindo a faixa de alta impedancia fica como trabalho futuro."
+  },
+  "known_limitations": [
+    "AB/BC francas (unico cenario real dessas classes): 56.5%/71.2%. Investigado a fundo nesta sessao com 5 abordagens diferentes (rebalancear dado, peso 3x no modelo geral, feature de pureza espectral, especialista binario, peso 2x no especialista) -- nenhuma resolveu de forma decisiva. Evidencia forte de que e' o MESMO fenomeno fisico do problema ABG/BCG em alta-Z (convergencia de sinal quando a corrente de terra e' pequena), nao um problema de receita de treino corrigivel com mais dado/peso. Proximo passo em aberto: pesquisar uma feature realmente nova baseada em onda viajante de sequencia-zero no instante da falta (ver conversa da sessao 2026-08-14), nao mais ajustes de dado/peso nas features atuais.",
+    "ABG em Rfault alto (>=300ohm): 81%, ainda abaixo de 90%. BCG (91%) e CAG (98%) estao melhor. Mesmo fenomeno fisico do item acima, na direcao oposta.",
+    "Especialistas AB_ABG e BC_BCG foram treinados mas EXPLICITAMENTE DESATIVADOS na inferencia (infer_fault.py) porque pioravam o resultado -- mantidos no artefato para referencia/pesquisa futura, nao para uso em producao.",
+    "Regressor de sanidade de distancia nao retreinado com nenhuma malha de alta impedancia de v10 a v29.",
+    "Teste de 12k casos e' bateria informal pos-treino, nao campanha cega oficial. O teste cego oficial (ver blind_test_v23_corrected.json) precisa ser re-executado com o v29 e a topologia corrigida antes de qualquer alegacao de rigor cego."
+  ],
+  "policy": "EM PRODUCAO. Promovido pelo usuario em 2026-08-14. Corrige um problema de fisica real (topologia de Rfault em faltas fase-fase) que afetava todos os candidatos anteriores desde o inicio do projeto. AB/BC seguem como limitacao conhecida e investigada a fundo, nao resolvida.",
+  "based_on": "modelos/FINAL_PIPELINE_FREEZE_V23.json"
+}
