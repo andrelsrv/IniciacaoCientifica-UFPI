@@ -18,6 +18,11 @@ FAULT_SWITCHES = {
 }
 
 GROUNDED_FAULTS = frozenset({"AG", "BG", "CG", "ABG", "BCG", "CAG"})
+# Faltas puramente fase-fase (sem terra) nao tem caminho fisico ate o
+# resistor de falta nesta topologia (confirmado contra o template de
+# referencia no ATPDraw) -- na pratica sao sempre francas (~0 ohm).
+# Rfault so e' fisicamente aplicavel as classes em GROUNDED_FAULTS.
+PHASE_PHASE_FAULTS = frozenset({"AB", "BC", "CA", "ABC"})
 
 SWITCH_NODE_PAIRS = {
     "AB": "X0001BX0001A",
@@ -88,12 +93,22 @@ def _fault_network(fault_class: str) -> tuple[list[tuple[str, str]], list[tuple[
             branches = [(shared_node, "")]
             switches = [(PHASE_NODES[phase], shared_node) for phase in phases]
     elif fault_class == "ABC":
-        branches = [(FAULT_NODES[phase], STAR_NODE) for phase in phases]
-        switches = [(PHASE_NODES[phase], FAULT_NODES[phase]) for phase in phases]
+        # Falta trifasica franca: as tres fases ligadas a um no comum
+        # (estrela), sem resistor -- mesma justificativa das faltas
+        # fase-fase (sem terra nao ha' caminho ate o Rfault, entao e'
+        # sempre franca na pratica). NAO fechar as 3 chaves fase-fase em
+        # triangulo (A-B, B-C, C-A simultaneas): o ATP rejeita isso como
+        # "closed-switch loop" (KILL 363, chaves ideais em paralelo no
+        # mesmo loop violam unicidade de solucao de Kirchhoff) -- testado
+        # e confirmado. STAR_NODE (sem resistor) evita o loop.
+        branches = []
+        switches = [(PHASE_NODES[phase], STAR_NODE) for phase in phases]
     else:
+        # AB/BC/CA: falta fase-fase franca, mesma justificativa acima --
+        # liga as duas fases diretamente, sem resistor.
         first, second = phases
-        branches = [(FAULT_NODES[first], PHASE_NODES[second])]
-        switches = [(PHASE_NODES[first], FAULT_NODES[first])]
+        branches = []
+        switches = [(PHASE_NODES[first], PHASE_NODES[second])]
     return branches, switches
 
 
@@ -117,7 +132,14 @@ def configure_fault_deck(template: str, params: FaultParameters) -> str:
     fault_class = params.fault_class.upper()
     if fault_class not in FAULT_SWITCHES:
         raise ValueError(f"Classe de falta inválida: {params.fault_class}")
-    if not 0.01 <= params.rfault_ohm <= 3000.0:
+    if fault_class in PHASE_PHASE_FAULTS:
+        if params.rfault_ohm != 0.0:
+            raise ValueError(
+                f"Falta {fault_class} nao tem caminho ate o Rfault nesta topologia "
+                "(so faltas com terra tem) -- passe rfault_ohm=0.0 explicitamente, "
+                "nao um valor positivo que seria silenciosamente ignorado."
+            )
+    elif not 0.01 <= params.rfault_ohm <= 3000.0:
         raise ValueError("Rfault deve estar entre 0,01 e 3000 ohms")
     if not 0.0 <= params.incidence_angle_deg < 360.0:
         raise ValueError("O ângulo deve estar no intervalo [0, 360) graus")

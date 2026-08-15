@@ -30,13 +30,19 @@ class FaultCaseGeneratorTests(unittest.TestCase):
         self.assertAlmostEqual(float(switch[14:24]), 5 / 60, places=7)
         self.assertEqual(float(switch[24:34]), 2.0)
 
-    def test_ab_places_rfault_between_a_and_b(self):
-        deck = configure_fault_deck(self.template, FaultParameters("AB", 25, 30))
+    def test_ab_is_bolted_direct_switch_no_resistor(self):
+        # Falta fase-fase (sem terra) nao tem caminho ate o Rfault nesta
+        # topologia (confirmado contra o template de referencia do
+        # ATPDraw) -- e' sempre uma ligacao direta A-B, sem resistor.
+        deck = configure_fault_deck(self.template, FaultParameters("AB", 0.0, 30))
         branches = cards(deck, "/BRANCH")
         switches = cards(deck, "/SWITCH")
-        resistor = next(x for x in branches if x[2:14] == "XF000AX0001B")
-        self.assertEqual(float(resistor[26:32]), 25.0)
-        self.assertTrue(any(x[2:14] == "X0001AXF000A" for x in switches))
+        self.assertFalse(any(x[2:8] in {"XF000A", "XF000B"} for x in branches))
+        self.assertTrue(any(x[2:14] == "X0001AX0001B" for x in switches))
+
+    def test_ab_rejects_nonzero_rfault(self):
+        with self.assertRaises(ValueError):
+            configure_fault_deck(self.template, FaultParameters("AB", 25, 30))
 
     def test_abg_uses_two_independent_resistors_to_ground(self):
         deck = configure_fault_deck(self.template, FaultParameters("ABG", 1, 30))
@@ -46,12 +52,20 @@ class FaultCaseGeneratorTests(unittest.TestCase):
         self.assertTrue(all(not x[8:14].strip() for x in fault_resistors))
         self.assertTrue(all(float(x[26:32]) == 1.0 for x in fault_resistors))
 
-    def test_abc_uses_three_resistors_in_floating_star(self):
-        deck = configure_fault_deck(self.template, FaultParameters("ABC", 10, 330))
+    def test_abc_is_bolted_star_no_resistor(self):
+        # Estrela (3 chaves ate' um no comum), nao triangulo -- fechar as
+        # 3 chaves fase-fase entre si simultaneamente cria um loop de
+        # chaves ideais que o ATP rejeita (KILL 363).
+        deck = configure_fault_deck(self.template, FaultParameters("ABC", 0.0, 330))
         branches = cards(deck, "/BRANCH")
-        resistors = [x for x in branches if x[8:14] == "XFSTAR"]
-        self.assertEqual({x[2:8] for x in resistors}, {"XF000A", "XF000B", "XF000C"})
-        self.assertTrue(all(float(x[26:32]) == 10.0 for x in resistors))
+        switches = cards(deck, "/SWITCH")
+        self.assertFalse(any(x[2:8] in {"XF000A", "XF000B", "XF000C"} for x in branches))
+        star_switches = [x for x in switches if x[8:14] == "XFSTAR"]
+        self.assertEqual({x[2:8] for x in star_switches}, {"X0001A", "X0001B", "X0001C"})
+
+    def test_abc_rejects_nonzero_rfault(self):
+        with self.assertRaises(ValueError):
+            configure_fault_deck(self.template, FaultParameters("ABC", 10, 330))
 
     def test_removes_all_legacy_fault_switches_and_branch(self):
         deck = configure_fault_deck(self.template, FaultParameters("BG", 1, 0))
