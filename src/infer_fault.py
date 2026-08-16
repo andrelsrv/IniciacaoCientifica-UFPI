@@ -132,10 +132,13 @@ def infer_fault(
         # raros casos corretos com atenuacao atipica. Ver freeze v10.
         if location["conclusive"] and sanity_artifact is not None:
             # O regressor de sanidade nao foi retreinado desde o v12 (61
-            # atributos, sem phase_asymmetry) -- excluir as 2 colunas novas
-            # antes de prever, senao o vetor fica com o numero errado de
-            # atributos e ordem incompativel com o que o regressor espera.
-            sanity_mask = [not name.startswith("phase_asymmetry__") for name in features.names]
+            # atributos originais) -- excluir todas as colunas novas
+            # acrescentadas desde entao (phase_asymmetry, zero_over_positive,
+            # modal_ratio) antes de prever, senao o vetor fica com o numero
+            # errado de atributos e ordem incompativel com o que o
+            # regressor espera.
+            NEW_FEATURE_PREFIXES = ("phase_asymmetry__", "zero_over_positive_current__", "modal_ratio__")
+            sanity_mask = [not name.startswith(NEW_FEATURE_PREFIXES) for name in features.names]
             sanity_values = features.values[sanity_mask]
             regressor_estimate = float(
                 sanity_artifact["model"].predict(sanity_values.reshape(1, -1))[0]

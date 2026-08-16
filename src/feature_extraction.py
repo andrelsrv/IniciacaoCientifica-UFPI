@@ -9,7 +9,7 @@ import numpy as np
 from signal_io import CANONICAL_CHANNELS, SignalData
 
 
-FEATURE_VERSION = "pilot_v6_phase_asymmetry"
+FEATURE_VERSION = "pilot_v8_modal_transform"
 # Janela de busca ampliada: cobre praticamente toda a simulacao, em vez de
 # uma fatia fixa de 80-110ms. A linha de base (regime permanente) usa um
 # trecho bem no inicio, pois a fonte ja parte em regime (solucao fasorial
@@ -87,6 +87,43 @@ def _sequence_rms(window: np.ndarray, offset: int) -> np.ndarray:
     return _rms(np.abs(sequences), axis=0)
 
 
+# Matriz de transformacao modal REAL da linha (autovetores [Ti], I-fase =
+# [Ti]*I-modo), extraida do calculo de constantes de linha do ATP
+# (LINE CONSTANTS / JMarti) para a geometria de condutores usada no
+# template (disposicao horizontal, fase B fisicamente no meio entre A e
+# C -- ver CONDUCTOR_CARDS em jmarti_generator.py). E' constante porque
+# depende so da geometria dos condutores (fixa no projeto), nao da
+# distancia nem do caso simulado -- confirmado comparando o [Ti] de
+# varios pares distancia/remoto diferentes, todos identicos.
+#
+# A transformacao classica de componentes simetricas (_sequence_rms
+# acima) assume as 3 fases simetricas entre si, o que NAO e' verdade
+# nesta linha (fase B tem acoplamento diferente de A e C por estar no
+# meio). O [Ti] real separa os modos corretamente: modo 1 (terra, todas
+# as fases quase iguais) ~ sequencia-zero classica; modo 2 (~fase B
+# proximo de zero, A e C opostos) mede diferenca entre as fases DE FORA
+# -- relevante para faltas CA; modo 3 (fase B domina, A e C quase iguais
+# e opostos a B) mede o quanto a fase B se destaca -- relevante para
+# faltas AB/BC, que sao justamente as classes mais dificeis de separar
+# de ABG/BCG com a transformacao classica. Validado empiricamente: AUC
+# individual 0.78-0.82 e ganho de +7 a +18 pontos percentuais de
+# acuracia cruzada ao somar aos atributos existentes (2026-08-15, ver
+# diag_traveling_wave em RESULTPESQUISA).
+_MODAL_TI = np.array([
+    [0.576059319916492, -0.708643776642812, -0.421158137160713],
+    [0.575793365980876, -0.00215290184324383, 0.803639961347897],
+    [0.580187607270064, 0.705563152977156, -0.420462407389850],
+])
+_MODAL_TI_INV = np.linalg.inv(_MODAL_TI)
+
+
+def _modal_rms(window: np.ndarray, offset: int) -> np.ndarray:
+    """RMS dos 3 modos reais da linha (terra, A-C, B) no trecho `window`,
+    na mesma ordem de [modo1, modo2, modo3] descrita acima."""
+    modes = window[:, offset : offset + 3] @ _MODAL_TI_INV.T
+    return _rms(np.abs(modes), axis=0)
+
+
 def extract_features(signals: SignalData) -> FeatureResult:
     if signals.channel_names != CANONICAL_CHANNELS:
         raise ValueError("A extração exige a ordem canônica dos 12 canais.")
@@ -134,6 +171,7 @@ def extract_features(signals: SignalData) -> FeatureResult:
         feature_values.extend(float(x) for x in vector)
         feature_names.extend(f"{prefix}__{name}" for name in CANONICAL_CHANNELS)
 
+    zero_over_positive_current: dict[str, float] = {}
     for terminal, voltage_offset, current_offset in (("PDT", 0, 6), ("BEA", 3, 9)):
         for quantity, offset in (("V", voltage_offset), ("I", current_offset)):
             pre_seq = np.maximum(_sequence_rms(pre, offset), 1e-9)
@@ -144,6 +182,33 @@ def extract_features(signals: SignalData) -> FeatureResult:
                 f"sequence_ratio__{terminal}_{quantity}_{component}"
                 for component in ("zero", "positive", "negative")
             )
+            if quantity == "I":
+                zero_over_positive_current[terminal] = float(post_seq[0] / max(post_seq[1], 1e-9))
+
+    # Sequencia-zero sobre sequencia-positiva, ambas no MESMO instante
+    # pos-falta (nao normalizadas pelo nivel pre-falta como sequence_ratio
+    # acima). O denominador (sequencia positiva pos-falta) e' sempre grande
+    # durante qualquer falta, evitando dividir ruido por ruido -- que e' o
+    # que sequence_ratio faz quando a corrente de terra ja e' pequena
+    # (exatamente onde AB/BC se confundem com ABG/BCG). Validado
+    # empiricamente: AUC 0.68-0.81 isolado, +3 a +6 pontos percentuais de
+    # acuracia cruzada quando somado as features existentes (lote de 540
+    # casos, ver diag_traveling_wave em RESULTPESQUISA, 2026-08-15).
+    for terminal in ("PDT", "BEA"):
+        feature_values.append(zero_over_positive_current[terminal])
+        feature_names.append(f"zero_over_positive_current__{terminal}")
+
+    # Razao entre o modo-B (3) e o modo-terra (1) da transformacao modal
+    # REAL da linha (ver _modal_rms acima), no mesmo instante pos-falta --
+    # mesmo racional do zero_over_positive_current acima, mas usando a
+    # decomposicao fisicamente correta para esta linha assimetrica em vez
+    # da aproximacao de componentes simetricas. E' a feature que mais
+    # ajudou AB/BC no dia 2026-08-15 (+7 a +18 pontos percentuais de
+    # acuracia cruzada combinada com os atributos existentes).
+    for terminal, current_offset in (("PDT", 6), ("BEA", 9)):
+        modes = _modal_rms(post, current_offset)
+        feature_values.append(float(modes[2] / max(modes[0], 1e-9)))
+        feature_names.append(f"modal_ratio__{terminal}_I_modeB_over_modeGround")
 
     # Assimetria entre fases sas (max-min do rms_ratio das 3 fases de
     # corrente de um terminal). Faltas fase-fase-terra (ex. ABG) drenam
