@@ -69,14 +69,19 @@ def infer_fault(
     # geral cai numa dessas 6 classes, o especialista correspondente da' a
     # palavra final.
     specialists = artifact.get("specialists")
-    # SO CA/CAG usa o especialista. Testado tambem para AB/ABG e BC/BCG,
-    # mas piorou os dois (56%->51%, 67%->61%) em vez de ajudar -- mesmo
-    # com peso extra explicito para o lado franca. CA/CAG melhorou bastante
-    # (89%->97%) e nao regrediu com o mesmo mecanismo. Ver
-    # retrain_v27_specialists e retrain_v28_weighted_specialists para o
-    # historico completo dessa investigacao.
+    # AB/ABG e BC/BCG so passaram a ganhar com o especialista depois da
+    # feature modal_ratio (G2.1): antes dela, o especialista piorava os dois
+    # (56%->51%, 67%->61%) porque nao tinha informacao suficiente pra
+    # separar o par melhor que o classificador geral. Reavaliado com a
+    # mesma feature nova e confirmado ganho real (AB 65.8%->74.5%, BC
+    # 86.8%->89.2%, mesmo lote de 1600 casos, com/sem especialista). CA/CAG
+    # ja funcionava desde v27 (89%->97%). Ver
+    # C:\RESULTPESQUISA\ab_bc_specialist_retest.log e
+    # ab_bc_baseline_retest.log para o comparativo completo.
     specialist_pair_by_class = {
         "CA": "CA_CAG", "CAG": "CA_CAG",
+        "AB": "AB_ABG", "ABG": "AB_ABG",
+        "BC": "BC_BCG", "BCG": "BC_BCG",
     }
     if specialists and predicted_class in specialist_pair_by_class:
         spec = specialists[specialist_pair_by_class[predicted_class]]
