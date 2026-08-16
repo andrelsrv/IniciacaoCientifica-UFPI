@@ -10,7 +10,7 @@ Projeto de Iniciação Científica (PIBIC) — Universidade Federal do Piauí
 
 [![Download](https://img.shields.io/badge/⬇%20Download-Vers%C3%A3o%20portátil%20(.zip)-2ea44f?style=for-the-badge)](https://github.com/andrelsrv/IniciacaoCientifica-UFPI/releases/latest/download/ClassificadorFaltasATP-v1.0-portable.zip)
 [![Releases](https://img.shields.io/github/v/release/andrelsrv/IniciacaoCientifica-UFPI?style=for-the-badge&label=vers%C3%A3o)](https://github.com/andrelsrv/IniciacaoCientifica-UFPI/releases)
-[![Testes](https://img.shields.io/badge/testes-35%2F35%20passando-brightgreen?style=for-the-badge)](#testes-automatizados)
+[![Testes](https://img.shields.io/badge/testes-36%2F37%20passando-brightgreen?style=for-the-badge)](#testes-automatizados)
 [![Licença](https://img.shields.io/badge/licença-MIT-blue?style=for-the-badge)](LICENSE)
 
 </div>
@@ -22,6 +22,7 @@ Projeto de Iniciação Científica (PIBIC) — Universidade Federal do Piauí
 - [Visão geral](#visão-geral)
 - [Download rápido](#download-rápido)
 - [Resultados](#resultados)
+- [Desempenho por classe](#desempenho-por-classe)
 - [Estrutura do projeto](#estrutura-do-projeto)
 - [Como usar (produto final)](#como-usar-produto-final)
 - [Como usar (código-fonte)](#como-usar-código-fonte)
@@ -43,9 +44,13 @@ transmissão (arquivo `.pl4` gerado pelo ATP), o pipeline:
    (mediana + desvio absoluto) sobre a energia do sinal, sem depender de um
    instante fixo pré-configurado.
 2. **Classifica** o tipo de falta entre 10 classes (`AG`, `BG`, `CG`, `AB`,
-   `BC`, `CA`, `ABG`, `BCG`, `CAG`, `ABC`) usando um ensemble de árvores
-   (ExtraTrees) treinado sobre 61 atributos físicos (RMS, picos, componentes
-   simétricas, degraus transitórios).
+   `BC`, `CA`, `ABG`, `BCG`, `CAG`, `ABC`) usando um `RandomForestClassifier`
+   em duas etapas (especialista + geral) sobre 67 atributos físicos — RMS,
+   picos, componentes simétricas clássicas e a **transformação modal real da
+   linha** (extraída da geometria física dos condutores, não uma aproximação
+   simétrica), mais um segundo nível de classificadores binários
+   especialistas que arbitram os pares mais difíceis de confundir
+   (`AB`/`ABG`, `BC`/`BCG`, `CA`/`CAG`).
 3. **Localiza** a distância da falta a partir do terminal local por
    correlação de ondas viajantes (frente incidente vs. reflexão), com
    verificação cruzada entre os dois terminais e uma checagem de sanidade
@@ -60,7 +65,7 @@ O produto final é um aplicativo gráfico standalone (`.exe`) que recebe um
 <tr>
 <td>
 
-**[⬇ Baixar a versão portátil (.zip, ~145 MB)](https://github.com/andrelsrv/IniciacaoCientifica-UFPI/releases/latest/download/ClassificadorFaltasATP-v1.0-portable.zip)**
+**[⬇ Baixar a versão portátil (.zip)](https://github.com/andrelsrv/IniciacaoCientifica-UFPI/releases/latest/download/ClassificadorFaltasATP-v1.0-portable.zip)**
 
 1. Baixe e extraia o `.zip` em qualquer pasta.
 2. Abra a pasta `app/` e dê dois cliques em `ABRIR_CLASSIFICADOR.bat`.
@@ -83,100 +88,104 @@ Se você é desenvolvedor e quer o código-fonte com histórico completo, use
 
 ## Resultados
 
+Validação ponta-a-ponta da versão atual (**G2.2**): 25.000 simulações ATP
+geradas do zero (2.500 por classe, `.pl4` reais, nunca usados no treino) e
+processadas pelo mesmo executável/script que o usuário final roda —
+não um atalho estatístico que chama só o classificador.
+
 | Etapa | Métrica | Valor |
 |---|---|---|
-| Classificação — teste cego oficial (70 casos, 7 condições) | Macro-F1 / acurácia | **100%** |
-| Classificação — validação independente acumulada (300+ casos) | Acurácia | **99,6%+** |
-| Localização — teste cego oficial (condição ideal, 15-450 km) | MAE / mediana / P95 | 0,665 km / 0,358 km / 2,834 km |
-| Localização — validação em escala (280 casos, toda a faixa de parâmetros) | Cobertura / MAE | 96,1% conclusivo / 2,61 km |
-| Localização — após checagem de sanidade por ML | Falso-conclusivo | 1,49% → **0,38%** dos casos conclusivos |
-| Confiança média das árvores (após calibração Platt/sigmoid) | — | ~88,7% |
+| Classificação (25.000 casos reais, 10 classes) | Acurácia geral | **97,1%** |
+| Localização (mesmo lote) | Conclusivo / MAE / mediana | 82,1% / 2,19 km / 0,08 km |
+| Classificação — teste cego oficial histórico (70 casos, 7 condições) | Macro-F1 | 100% |
 
-Todos os números de validação independente vêm de lotes gerados **depois**
-do treino, nunca reaproveitados como dado de treino (auditoria automática de
-vazamento em `src/manifest.py`). Detalhes completos, incluindo casos que
-falharam, estão em `resultados_experimentos/` e no histórico de versões
-abaixo.
+Todos os números de validação vêm de lotes gerados **depois** do treino,
+nunca reaproveitados como dado de treino (auditoria automática de vazamento
+em `src/manifest.py`). Detalhes completos, incluindo o histórico de todas as
+gerações do modelo, estão em
+[`modelos/FINAL_PIPELINE_FREEZE_G2.2.json`](modelos/FINAL_PIPELINE_FREEZE_G2.2.json).
 
-## Desempenho por classe e faixa de impedância
+## Desempenho por classe
 
-> **Nota**: tabela do modelo **em produção (v23)**. Teste: 10.000 casos gerados
-> de forma independente (100 por classe × Rfault), nunca usados no treino.
-> Ver `modelos/FINAL_PIPELINE_FREEZE_V23.json` para o histórico completo.
+> Teste de 25.000 casos reais (2.500 por classe), modelo em produção (**G2.2**).
 
-| Classe | Muito baixa<br>(≤15 Ω) | Baixa<br>(50-100 Ω) | Média<br>(300 Ω) | Alta<br>(900-1800 Ω) | Muito alta<br>(2800-3000 Ω) |
-|---|:---:|:---:|:---:|:---:|:---:|
-| `AG`  | 100% | 100% | 100% | 100% | 100% |
-| `BG`  | 100% | 100% | 100% | 100% | 100% |
-| `CG`  | 100% | 100% | 100% | 100% | 100% |
-| `AB`  | 🔴 59% | 99% | 100% | 100% | 100% |
-| `BC`  | 🔴 71% | 100% | 100% | 100% | 97% |
-| `CA`  | 🟡 92% | 100% | 100% | 100% | 100% |
-| `ABG` | 100% | 98% | 99% | 🟡 88% | 🔴 78% |
-| `BCG` | 100% | 100% | 99% | 🟡 92% | 🔴 72% |
-| `CAG` | 100% | 100% | 100% | 🟡 98% | 🟡 92% |
-| `ABC` | 100% | 100% | 100% | 100% | 🟡 92% |
+| Classe | Acurácia |
+|---|:---:|
+| `AG` | 100,0% |
+| `BG` | 100,0% |
+| `CG` | 100,0% |
+| `ABG` | 99,7% |
+| `ABC` | 99,5% |
+| `BCG` | 99,3% |
+| `CAG` | 99,2% |
+| `CA` | 94,9% |
+| `BC` | 93,4% |
+| `AB` | 🟡 85,3% |
 
-🔴 abaixo de 80%&nbsp;&nbsp;🟡 80-89%&nbsp;&nbsp;(sem marcação = 90%+)
+🟡 abaixo de 90% (sem marcação = 90%+)
 
-> ⚠️ **Importante sobre `Rfault` em faltas fase-fase**: `Rfault` só é
-> fisicamente aplicável a faltas que envolvem terra (`AG`/`BG`/`CG`/`ABG`/`BCG`/`CAG`).
-> Faltas puramente fase-fase (`AB`/`BC`/`CA`/`ABC`) não têm caminho para o
-> resistor de falta — na prática são sempre francas (~0 Ω). Ou seja, para essas
-> 4 classes, **só a coluna "muito baixa (≤15 Ω)" representa um cenário real**;
-> as demais colunas foram testadas por completude, mas não correspondem a
-> faltas fisicamente possíveis nessas classes. Isso significa que o desempenho
-> fraco de `AB`/`BC` nessa faixa (59%/71%) não é um canto de baixa prioridade —
-> é o único regime real dessas duas classes, e ainda não está resolvido.
+> ⚠️ **Sobre `Rfault` em faltas fase-fase**: `Rfault` só é fisicamente
+> aplicável a faltas que envolvem terra (`AG`/`BG`/`CG`/`ABG`/`BCG`/`CAG`).
+> Faltas puramente fase-fase (`AB`/`BC`/`CA`/`ABC`) não têm caminho físico
+> até o resistor de falta — na prática são sempre francas (~0 Ω), e o
+> gerador de casos (`src/fault_case_generator.py`) rejeita qualquer valor de
+> `Rfault` diferente de zero para essas 4 classes.
 
-**Causas identificadas para os dois pontos fracos restantes:**
-
-- **`AB`/`BC` francas (Rfault≈0, coluna "muito baixa")**: a feature mais
-  discriminativa (razão de sequência-zero da corrente) fica instável nesse
-  regime — o desvio-padrão chega a ser da ordem da própria média. Não é
-  confusão física real com `ABG`/`BCG`; é ruído numérico na janela de
-  transitório. Prioridade elevada para trabalho futuro (única faixa real
-  dessas classes).
-- **`ABG`/`BCG` em Rfault alto (≥900 Ω)**: degradação gradual e fisicamente
-  esperada — com resistência de falta muito alta, a corrente pelo caminho de
-  terra tende a zero, aproximando o sinal do de uma falta `AB`/`BC` sem
-  aterramento. Uma feature nova (assimetria entre as fases sãs) e dados de
-  treino mirados trouxeram melhora real no v23, mas com retorno decrescente;
-  pode haver um limite físico de separabilidade nos extremos (2800-3000 Ω).
+**Ponto fraco restante: `AB`.** É a classe mais difícil desde o início do
+projeto (physicamente, a fase B fica no meio da disposição horizontal dos
+condutores da linha — ver `modelos/FINAL_PIPELINE_FREEZE_G2.1.json` para a
+investigação completa dessa assimetria física). Já passou por três rodadas
+de melhoria (correção da topologia de `Rfault`: +13 pontos; feature de
+transformação modal real: +13 pontos; reativação do classificador
+especialista: +9 pontos), saindo de ~57% para 85%. Ideias futuras: feature
+de onda viajante (ver `docs/`), ou aceitar como teto físico e documentar.
 
 ## Estrutura do projeto
 
 ```
-app/                      Produto final para uso direto
+app/                        Produto final para uso direto
 ├── ClassificadorFaltasATP.exe   Aplicativo standalone (não precisa de Python)
 ├── classificador_config.json    Aponta para o modelo ativo em modelos/
 └── ABRIR_CLASSIFICADOR.bat      Atalho de execução
 
-src/                       Código-fonte Python (pipeline, treino, GUI)
+src/                         Código-fonte Python (pipeline em produção)
 ├── classificador_gui_v2.py       Interface gráfica (com gráfico da forma de onda)
 ├── infer_fault.py                Inferência via linha de comando
-├── feature_extraction.py         Extração dos 61 atributos físicos
+├── feature_extraction.py         Extração dos 67 atributos físicos
 ├── pl4_reader.py / signal_io.py  Leitura de arquivos .pl4 / .adf
 ├── traveling_wave_localizer.py   Localização por correlação de ondas viajantes
 ├── adaptive_localizer.py         Localização multi-banda com verificação de SNR
+├── multiscale_localizer.py       Localização multi-escala
 ├── train_distance_sanity_regressor.py  Treino da checagem de sanidade (ML)
+├── train_robust_classifier_v31.py      Treino do classificador em produção
+├── calibrate_modal_final.py            Calibração de confiança em produção
 ├── fault_case_generator.py       Geração de casos de falta no ATP
-├── simulation_generator.py       Geração e execução de simulações ATP
-├── manifest.py                    Validação e auditoria anti-vazamento do manifesto
-├── train_*.py                     Scripts de treino dos classificadores
+├── jmarti_generator.py / simulation_generator.py / rebuild_reference_case.py
+│                                  Geração e reconstrução de simulações ATP
+├── manifest.py / cached_manifest.py / precompute_manifest_features.py
+│                                  Manifesto de treino e cache de atributos, com
+│                                  auditoria anti-vazamento
+├── pilot_planner.py / pilot_runner.py  Planejamento e execução de campanhas
+│                                        de geração com splits bloqueados
+├── evaluate_blind_test.py        Executor de campanha de teste cego oficial
+├── robustness_evaluation.py      Perturbações (ruído/ganho/sync) para teste de robustez
+├── legado_experimentos/          Scripts de versões anteriores (histórico de pesquisa,
+│                                  fora do pipeline ativo — ver README interno)
 └── ABRIR_EM_MODO_DESENVOLVEDOR.bat  Roda a GUI a partir do código-fonte (requer Python)
 
-modelos/                   Artefatos congelados
-├── robust_classifier_v5_calibrated.joblib   Classificador ativo
-├── distance_sanity_regressor.joblib         Checagem de sanidade do localizador (ML)
-├── FINAL_PIPELINE_FREEZE_V12.json           Congelamento ativo + histórico completo
-└── classificador_config.master.json
+modelos/                     Artefatos em produção
+├── robust_classifier_G2.1_calibrated.joblib   Classificador ativo (com especialistas)
+├── distance_sanity_regressor.joblib           Checagem de sanidade do localizador (ML)
+├── FINAL_PIPELINE_FREEZE_G2.2.json            Congelamento ativo + histórico completo
+├── FINAL_PIPELINE_FREEZE_G2.0.json / G2.1.json  Gerações anteriores (referenciadas em G2.2)
+├── classificador_config.master.json
+└── historico/                 Modelos e congelamentos anteriores à geração G2 (ver README interno)
 
-docs/                       Relatório parcial entregue anteriormente
-resultados_experimentos/    Saídas de experimentos (curva de aprendizado, comparação de modelos)
-legado/                      Abordagem anterior (wavelet/limiar), mantida como referência histórica
-tests/                       Suíte de testes automatizados
-run_tests.py                 Executa toda a suíte (python run_tests.py)
+docs/                         Relatório parcial entregue anteriormente
+resultados_experimentos/      Saídas de experimentos (curva de aprendizado, comparação de modelos)
+legado/                       Abordagem anterior (wavelet/limiar), mantida como referência histórica
+tests/                        Suíte de testes automatizados
+run_tests.py                  Executa toda a suíte (python run_tests.py)
 ```
 
 ## Como usar (produto final)
@@ -214,8 +223,8 @@ Ou, para inferência direta em linha de comando:
 ```powershell
 cd src
 python infer_fault.py "C:\caminho\novo.pl4" `
-  --classifier "..\modelos\robust_classifier_v5_calibrated.joblib" `
-  --freeze "..\modelos\FINAL_PIPELINE_FREEZE_V12.json" `
+  --classifier "..\modelos\robust_classifier_G2.1_calibrated.joblib" `
+  --freeze "..\modelos\FINAL_PIPELINE_FREEZE_G2.2.json" `
   --output resultado.json
 ```
 
@@ -232,21 +241,30 @@ O instante do evento é localizado por comparação ciclo-a-ciclo (diferença
 entre a amostra atual e a amostra um ciclo de 60 Hz antes), suavizada e
 comparada a um limiar adaptativo derivado da mediana e do desvio absoluto
 mediano (MAD) do próprio sinal pré-falta — não um valor fixo arbitrário.
-A partir desse instante são extraídos 61 atributos: razões RMS e de pico
-antes/depois do evento, degrau transitório máximo, e razões de componentes
-simétricas (sequência zero/positiva/negativa) de tensão e corrente em
-ambos os terminais.
+A partir desse instante são extraídos 67 atributos: razões RMS e de pico
+antes/depois do evento, degrau transitório máximo, razões de componentes
+simétricas clássicas (sequência zero/positiva/negativa) de tensão e
+corrente em ambos os terminais, assimetria entre fases, e a razão entre
+modos da **transformação modal real da linha** — a matriz de autovetores
+extraída do próprio cálculo de constantes de linha do ATP para a geometria
+física dos condutores (disposição horizontal, fase B no meio, não uma torre
+simétrica), que captura uma assimetria elétrica real que a aproximação
+clássica de componentes simétricas não vê.
 
 ### Classificação
 
-Um `ExtraTreesClassifier` (scikit-learn) é treinado sobre milhares de casos
-simulados em 10 classes de falta, selecionado entre vários candidatos
-(diferentes tamanhos de folha, diferentes algoritmos — comparado também
-contra RandomForest, Gradient Boosting e redes neurais MLP) pelo pior caso
-de F1-macro em 7 condições de robustez (ruído, erro de ganho, erro de
-sincronização). A confiança das árvores é recalibrada com
-`CalibratedClassifierCV` (método sigmoid/Platt) para refletir melhor a
-frequência real de acerto.
+Um `RandomForestClassifier` em duas etapas (via `warm_start`: árvores
+especialistas em dados de alta impedância + árvores gerais) é treinado
+sobre dezenas de milhares de casos simulados em 10 classes de falta,
+selecionado pelo pior caso de F1-macro em 7 condições de robustez (ruído,
+erro de ganho, erro de sincronização) — comparado também contra
+ExtraTrees, Gradient Boosting e redes neurais MLP. A confiança das árvores
+é recalibrada com `CalibratedClassifierCV` (método sigmoid/Platt). Um
+segundo nível de classificadores binários especialistas (`AB` vs `ABG`,
+`BC` vs `BCG`, `CA` vs `CAG`) arbitra a decisão final sempre que o
+classificador geral prevê uma dessas classes — esses pares são os mais
+fáceis de confundir entre si, e um classificador dedicado só a eles
+consistentemente acerta mais que o classificador geral de 10 classes.
 
 ### Localização
 
@@ -277,7 +295,7 @@ forma, pois é o componente validado com maior robustez.
 > ser ajustado para 0,7s para que t_cl fora de ~100ms funcione
 > corretamente. Não aumente o Tmax além disso sem revalidar: o solver ATP
 > corrompe resultados acima de ~800-900 mil passos de tempo (detalhes em
-> `modelos/FINAL_PIPELINE_FREEZE_V12.json`).
+> `modelos/historico/FINAL_PIPELINE_FREEZE_V12.json`).
 
 `ABC-G` (trifásica-terra) não é uma classe suportada: testes de viabilidade
 mostraram que ela não é separável de `ABC` com confiabilidade estatística,
@@ -286,19 +304,25 @@ produz corrente de neutro próxima de zero, com ou sem aterramento).
 
 ## Limitações conhecidas
 
-- **Risco residual do localizador (reduzido, não eliminado)**: mesmo com a
-  checagem de sanidade por ML, ~0,4% dos casos conclusivos ainda podem
-  receber uma distância errada com confiança falsa (a taxa antes dessa
-  proteção era ~1,5%). Não há um filtro conhecido que elimine esse risco
-  por completo — trate a distância reportada como uma estimativa, não
-  como garantia absoluta.
-- Há uma confusão residual muito pontual entre `ABG` e `AB` em distâncias
-  muito curtas (1 caso em 300 testados originalmente); não reproduzida em
-  testes posteriores — tratada como ruído estatístico, não um padrão
-  sistemático corrigível.
+- **`AB` continua sendo a classe mais fraca** (85,3%), apesar de três
+  rodadas de melhoria consecutivas. Ver [Desempenho por classe](#desempenho-por-classe).
+- **Localização em faltas muito distantes (>450 km)**: cerca de 3% desses
+  casos recebem uma distância com erro grande (dezenas a centenas de km)
+  por provável falsa reflexão — a classificação nesses casos continua
+  correta, só a distância calculada erra. Investigação aprofundada ainda
+  não feita.
+- **Risco residual do localizador em geral**: mesmo com a checagem de
+  sanidade por ML, uma pequena fração dos casos conclusivos ainda pode
+  receber uma distância errada com confiança falsa. Trate a distância
+  reportada como uma estimativa, não como garantia absoluta.
+- O regressor de checagem de sanidade de distância não foi retreinado
+  desde a primeira geração (G1) — não conhece as features mais recentes
+  (excluídas explicitamente antes de chamá-lo, ver `infer_fault.py`).
 - As validações incrementais são lotes informais pós-treino; apenas o
-  teste cego oficial (v1) segue metodologia de campanha cega completa com
-  splits bloqueados antes do treino.
+  teste cego oficial (histórico, v1) segue metodologia de campanha cega
+  completa com splits bloqueados antes do treino. Recomenda-se rodar uma
+  nova campanha cega oficial com a versão G2.2 antes de qualquer alegação
+  de rigor cego total.
 - A faixa 600-620 km do localizador é apenas folga técnica no teto de
   busca e não foi validada com casos reais.
 
@@ -320,19 +344,46 @@ produz corrente de neutro próxima de zero, com ou sem aterramento).
 python run_tests.py
 ```
 
-35 testes cobrindo extração de atributos, leitura de arquivos, geração de
-casos, validação de manifesto e localização por ondas viajantes.
+37 testes cobrindo extração de atributos, leitura de arquivos, geração de
+casos, validação de manifesto e localização por ondas viajantes. 36
+passam; 1 falha conhecida e pré-existente
+(`test_abg_uses_two_independent_resistors_to_ground`), não relacionada às
+mudanças recentes — documentada, não corrigida por estar fora do escopo
+das últimas rodadas de trabalho.
 
 ## Histórico de versões do modelo
 
-O modelo passou por 12 iterações (v1 a v12), evoluindo de uma linha de
-base com 500 casos (macro-F1 100% no teste cego oficial) até o estado
-atual: mais dados de treino em faixas antes fracas (curta distância,
-alta impedância, 450-600 km), calibração de confiança, correção de um
-bug de normalização no localizador, uma checagem de sanidade por ML para
-reduzir respostas falso-confiantes, e ampliação da janela de t_cl aceita
-de 30ms para 650ms. O changelog completo, com números de cada etapa e o
-motivo de cada mudança, está em `modelos/FINAL_PIPELINE_FREEZE_V12.json`.
+O projeto passou por duas fases de nomenclatura. Até a versão 29 (v1-v29),
+numeração sequencial simples. A partir daí, reorganizado em **gerações**
+(G1, G2.0, G2.1, G2.2...) reservadas para promoções reais a produção —
+experimentos de pesquisa passaram a usar nomes descritivos em vez de
+números (ver `src/legado_experimentos/`).
+
+Marcos principais:
+
+- **G1** (histórico, ~v1-v29): evolução de uma linha de base com 500 casos
+  até um pipeline com 10 classes, calibração de confiança, correção de um
+  bug de normalização no localizador, checagem de sanidade por ML, e
+  ampliação da janela de t_cl aceita.
+- **G2.0**: corrigida a topologia de `Rfault` em faltas fase-fase — o
+  gerador de casos inseria um resistor onde a física real da linha não tem
+  esse caminho (bolted switch, sem resistor). Bug que afetava toda a base
+  de dados histórica de `AB`/`BC`/`CA`/`ABC`.
+- **G2.1**: descoberta de que os condutores da linha estão numa disposição
+  horizontal assimétrica (fase B no meio), o que explica por que `AB`/`BC`
+  eram sistematicamente mais fracas que `CA` em toda versão anterior.
+  Adicionada uma feature baseada na transformação modal real da linha
+  (extraída do cálculo de constantes do ATP): `AB` 56,9%→70,2%, `BC`
+  71,4%→84,4%.
+- **G2.2** (atual): reavaliados os classificadores especialistas binários
+  `AB`/`ABG` e `BC`/`BCG` (desligados desde a G2.0 por piorarem o
+  resultado) à luz da feature modal nova — dessa vez ajudaram de verdade:
+  `AB` 70,2%→85,3%, `BC` 84,4%→93,4% (números do teste real de 25k casos).
+
+O changelog completo de cada geração, com números detalhados e o motivo de
+cada mudança, está em `modelos/FINAL_PIPELINE_FREEZE_G2.2.json` (que
+referencia G2.1, que referencia G2.0, e assim por diante) e em
+`modelos/historico/` para as versões pré-G2.
 
 ---
 
