@@ -1,0 +1,86 @@
+{
+  "frozen_at": "2026-08-15T22:39:37-03:00",
+  "purpose": "Promove a G2.1 a producao, substituindo a G2.0. Adiciona uma feature baseada na transformacao modal REAL da linha (nao a aproximacao classica de componentes simetricas), que resolveu o problema mais persistente do projeto -- AB/BC francas travadas em ~56-71% mesmo apos 6 abordagens de treino diferentes na G2.0.",
+  "history": [
+    "G2.0 (ver FINAL_PIPELINE_FREEZE_G2.0.json): primeira producao com a topologia de Rfault corrigida. AB=56.9%, BC=71.4% -- teto real, 6 abordagens de treino testadas sem sucesso decisivo.",
+    "Observacao do usuario (2026-08-15): 'sempre tem duas classes que ficam abaixo do esperado, sempre' -- ao longo de TODAS as versoes do projeto, sempre AB e BC (nunca CA). Isso nao e' coincidencia estatistica -- phase A, B, C deveriam ser fisicamente equivalentes por simetria rotacional, entao um padrao que favorece consistentemente CA sobre AB/BC so faz sentido se houver uma assimetria real no sistema.",
+    "Descoberta: os condutores da linha (CONDUCTOR_CARDS em jmarti_generator.py) estao numa disposicao HORIZONTAL/PLANA, nao uma torre simetrica -- fase A em x=0m, fase B em x=11m (NO MEIO), fase C em x=22m. A fase B fica fisicamente mais proxima das outras duas (11m) do que elas estao entre si (22m), criando acoplamento eletromagnetico mutuo assimetrico. Isso explica o padrao: qualquer falta envolvendo a fase B (AB, BC) e' fisicamente diferente de uma falta so entre as fases externas (CA).",
+    "A transformacao classica de componentes simetricas (usada em TODAS as features anteriores: sequence_ratio, phase_asymmetry, zero_over_positive_current) assume as 3 fases simetricas entre si -- o que nao vale para esta linha. Extraida a matriz de autovetores [Ti] REAL da linha do proprio calculo de constantes de linha do ATP (saida do LINE CONSTANTS ao gerar os modelos JMarti) -- constante, depende so da geometria fixa dos condutores, nao da distancia/caso. O modo 1 (quase igual nas 3 fases) e' o modo terra (~sequencia-zero classica); o modo 2 (fase B~0, A e C opostos) mede diferenca entre as fases externas -- relevante para CA; o modo 3 (fase B domina, A e C quase iguais e opostos a B) mede o quanto a fase B se destaca -- relevante para AB/BC.",
+    "Validado em 3 etapas antes de integrar: (1) lote pequeno controlado (540 casos): AUC individual 0.78-0.82, ganho de +7 a +18 pontos de acuracia cruzada ao somar aos atributos existentes; (2) teste de escala media (6 classes, dataset reduzido): AB 57%->76%, BC 71%->86%; (3) retreino completo das 10 classes (44.640 casos novos gerados especificamente com a feature nova) + teste de 12.000 casos: AB 56.9%->70.2% (+13.3 pontos), BC 71.4%->84.4% (+13 pontos), CA tambem melhorou (90.3%->94.6%), nada regrediu."
+  ],
+  "classifier": {
+    "path": "modelos/robust_classifier_G2.1_calibrated.joblib",
+    "sha256": "150659DE6E922EE7817E197469D4EBFDDA5253B092B050AB43A56FA2BCF7A0B9",
+    "training": "Manifesto original (reprocessado com a extracao atual, 67 atributos) + malha AG/BG/CG leve (3.240 casos) + malha ABG/BCG/CAG densa (32.400 casos, Rfault 0.01-3000ohm) + malha AB/BC/CA/ABC reforcada (9.000 casos, sempre francas). Total ~44.640 casos novos + manifesto. RandomForestClassifier em duas etapas via warm_start (400 arvores especialistas + 300 gerais, max_features=0.3) + especialista binario extra (300 arvores) so para CA/CAG.",
+    "feature_version": "pilot_v8_modal_transform",
+    "n_features": 67,
+    "worst_robust_macro_f1": 0.6765,
+    "rfault_note": "Faltas com terra (AG/BG/CG/ABG/BCG/CAG) aceitam Rfault ate 3000ohm. Faltas fase-fase (AB/BC/CA/ABC) exigem Rfault=0.0 -- fault_case_generator.py rejeita com erro qualquer valor positivo para essas classes.",
+    "calibration_method": "sigmoid (Platt), scikit-learn CalibratedClassifierCV, cv=prefit",
+    "modal_transform_matrix": "Ver _MODAL_TI em feature_extraction.py -- fixa, calculada pelo ATP LINE CONSTANTS para a geometria de condutores do template (disposicao horizontal, fase B no meio). NAO recalcular automaticamente por caso -- e' constante para todo o projeto enquanto a geometria da linha nao mudar.",
+    "specialist_classifiers": {
+      "AB_ABG": "treinado mas NAO usado em inferencia (mesma razao da G2.0 -- nao reavaliado com a feature modal, pode valer testar de novo no futuro)",
+      "BC_BCG": "treinado mas NAO usado em inferencia (idem)",
+      "CA_CAG": "USADO em inferencia -- arbitra a decisao final quando a previsao geral e' CA ou CAG"
+    },
+    "test_12k_report": "C:/RESULTPESQUISA/robust_test_modal_final_12k/report.json"
+  },
+  "test_summary": {
+    "geral_12000_casos": "11226/12000 = 93.5%",
+    "por_classe_geral": {
+      "AG": "100.0%", "BG": "100.0%", "CG": "99.8%",
+      "AB": "70.2%", "BC": "84.4%", "CA": "94.6%",
+      "ABG": "94.2%", "BCG": "96.2%", "CAG": "98.5%", "ABC": "97.6%"
+    },
+    "por_classe_faixa_relevante": {
+      "AB": "70% (franca, unico cenario real)",
+      "BC": "84% (franca, unico cenario real)",
+      "CA": "95% (franca, unico cenario real)",
+      "ABC": "98% (franca, unico cenario real)",
+      "ABG": "100% baixa-Z / 88% alta-Z (>=300ohm)",
+      "BCG": "100% baixa-Z / 92% alta-Z (>=300ohm)",
+      "CAG": "100% baixa-Z / 97% alta-Z (>=300ohm)"
+    },
+    "comparacao_g2_0": {
+      "AB": "56.9% -> 70.2% (+13.3)",
+      "BC": "71.4% -> 84.4% (+13.0)",
+      "CA": "90.3% -> 94.6% (+4.3)",
+      "ABG": "90.9% -> 94.2% (+3.3)",
+      "BCG": "96.1% -> 96.2% (~igual)",
+      "CAG": "99.0% -> 98.5% (~igual)",
+      "ABC": "100.0% -> 97.6% (leve queda, dentro do ruido esperado)",
+      "geral": "90.5% -> 93.5% (+3.0)"
+    }
+  },
+  "localizer": {
+    "validated_distance_range_km": [15, 600],
+    "note": "Sem alteracoes desde a G1 (todo o trabalho desta rodada foi no classificador). Ver historico v12 para o algoritmo de localizacao por ondas viajantes.",
+    "snr_threshold_db": 50.0,
+    "safe_event_window_s": [0.025, 0.675],
+    "maximum_search_distance_km": 620.0
+  },
+  "simulation_template": {
+    "tmax_s": 0.7,
+    "note": "Sem alteracoes desde a G1. Ver historico v12 para o limite do solver ATP."
+  },
+  "traveling_wave_velocity_km_per_us": 0.29927465071442727,
+  "adaptive_snr_threshold_db": 50.0,
+  "multiscale_cutoffs_hz": [60000, 80000, 100000, 150000],
+  "multiscale_maximum_spread_km": 3.0,
+  "distance_sanity_check": {
+    "path": "distance_sanity_regressor.joblib",
+    "sha256": "6813F3D5FCF3466D543A8B451F76A70922AC1DBC611ADF5764D65C3BF94B2C15",
+    "model": "RandomForestRegressor(n_estimators=400, min_samples_leaf=2)",
+    "training": "Sem alteracoes desde a G1 -- reutiliza o mesmo regressor (1737 casos, holdout MAE 24.81km, R2 0.9566). Espera 61 atributos originais -- infer_fault.py exclui TODAS as colunas novas (phase_asymmetry, zero_over_positive_current, modal_ratio) antes de chamar este regressor. Bug corrigido nesta versao: a exclusao antes so cobria phase_asymmetry, quebraria silenciosamente com os 67 atributos atuais.",
+    "max_disagreement_km": 100.0,
+    "note": "Retreino deste regressor incluindo a faixa de alta impedancia fica como trabalho futuro."
+  },
+  "known_limitations": [
+    "AB ainda e' a classe mais fraca (70.2%), apesar do grande ganho -- pode haver espaco pra mais melhoria (ex: reavaliar os especialistas AB_ABG/BC_BCG agora com a feature modal, ja que a razao deles terem piorado antes pode nao se aplicar mais com a nova informacao disponivel).",
+    "ABG em Rfault alto (>=300ohm): 88%, ainda abaixo de 90%. BCG (92%) e CAG (97%) estao melhor -- mesmo padrao fisico ja conhecido (corrente de terra pequena).",
+    "Regressor de sanidade de distancia nao retreinado com nenhuma malha de alta impedancia desde a G1.",
+    "Teste de 12k casos e bateria informal pos-treino, nao campanha cega oficial completa -- recomenda-se rodar o teste cego oficial com esta versao antes de qualquer alegacao de rigor cego."
+  ],
+  "policy": "EM PRODUCAO. Promovido pelo usuario em 2026-08-15. Resultado da observacao do usuario sobre o padrao consistente AB/BC fraco vs CA forte em todas as versoes anteriores, que levou a investigacao da causa fisica real (geometria assimetrica da linha) em vez de continuar ajustando treino/dado.",
+  "based_on": "modelos/FINAL_PIPELINE_FREEZE_G2.0.json"
+}
