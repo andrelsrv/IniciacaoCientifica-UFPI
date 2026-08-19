@@ -288,7 +288,18 @@ forma, pois é o componente validado com maior robustez.
 | Localização | 15 – 600 km | teste cego oficial cobriu 15-450 km; 450-600 km revalidado informalmente |
 | Resistência de falta (Rfault) | 0,01 – 3000 Ω para faltas com terra (`AG`/`BG`/`CG`/`ABG`/`BCG`/`CAG`); faltas puramente fase-fase (`AB`/`BC`/`CA`/`ABC`) são sempre francas (~0 Ω) | Rfault só tem caminho físico até o terra; faltas fase-fase não têm esse caminho |
 | Ângulo de incidência | 0° – 360° | a falta pode ocorrer em qualquer ponto do ciclo de 60 Hz |
-| Instante de fechamento (t_cl) | 0,025 – 0,675 s | livre dentro da simulação (Tmax=0,7s no template ATP) |
+| Instante de fechamento (t_cl) | 0,0833 – 0,09995 s (~83,3-100ms) para o que foi efetivamente gerado no treino | corresponde a 5 ciclos de 60Hz + um ângulo de incidência de 0-360° dentro do 6º ciclo — cobre todos os ângulos possíveis, mas só nesse instante absoluto |
+
+> **t_cl fora dessa janela**: testes pontuais mostraram que o classificador
+> generaliza bem para t_cl fora da faixa treinada (testado até 450ms) **na
+> maioria das distâncias** — mas não em todas. Ver a nota sobre
+> "covas" distância×ângulo em [Limitações conhecidas](#limitações-conhecidas):
+> em certas combinações estreitas e específicas de distância, mudar o t_cl
+> pode derrubar a acurácia de `AB`/`BC` mesmo dentro da janela treinada.
+> Não assuma que qualquer combinação de distância dentro de 15-600km vai
+> funcionar bem só porque a média geral do projeto é alta — cada distância
+> nova usada num caso real (fora dos lotes de teste já rodados) deveria, a
+> rigor, ser validada especificamente antes de confiar no resultado.
 
 > **Para uso manual no ATPDraw**: se você gerar o caso manualmente pelo
 > ATPDraw (fora do pipeline Python), o `Tmax` do seu projeto também precisa
@@ -306,6 +317,27 @@ produz corrente de neutro próxima de zero, com ou sem aterramento).
 
 - **`AB` continua sendo a classe mais fraca** (85,3%), apesar de três
   rodadas de melhoria consecutivas. Ver [Desempenho por classe](#desempenho-por-classe).
+- **"Covas" de distância×ângulo em `AB`/`BC`**: descoberto ao comparar
+  contra um projeto de referência externo (base enviada pelo orientador,
+  linha de 200km com falta a 90km do terminal local) que, nessa distância
+  exata, `BC` caía para ~39-55% de acerto (bem abaixo da média de ~94%) —
+  não por causa da distância isoladamente, mas de uma combinação estreita
+  e específica de distância + ângulo de incidência. Variando só a
+  distância (mantendo ângulo aleatório) a acurácia oscila de forma não
+  suave entre pontos vizinhos (ex.: BC=100% a 110km de distância do PDT,
+  mas 47-53% a 90km e 130km, a só 20km de diferença) — um padrão
+  consistente com reflexão de onda chegando num timing que atrapalha as
+  features de sequência-zero/modal, não com falta de dados de treino numa
+  região ampla. Tentativas de corrigir via mais dados de treino (ângulo
+  denso, sistemático) consertam os pontos exatos treinados (ex.: a
+  distância do orientador foi de 39-78% para 100% em 5.000 casos de
+  validação) mas **não generalizam** para distâncias vizinhas não
+  treinadas (testada uma vizinha a 20km de distância, sem melhora). Ou
+  seja: **não assuma que qualquer distância dentro de 15-600km tem alta
+  acurácia** — só as distâncias efetivamente testadas têm essa garantia.
+  Resolver isso de forma geral provavelmente exige uma feature nova,
+  menos sensível a esse tipo de coincidência de reflexão (candidata:
+  feature explícita de onda viajante), não mais dados de treino pontuais.
 - **Localização em faltas muito distantes (>450 km)**: cerca de 3% desses
   casos recebem uma distância com erro grande (dezenas a centenas de km)
   por provável falsa reflexão — a classificação nesses casos continua
