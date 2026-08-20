@@ -28,6 +28,25 @@ from traveling_wave_localizer import TravelingWaveConfig
 # passos de tempo; 0.7s fica com margem segura abaixo desse limite).
 LOCATION_SAFE_EVENT_WINDOW_S = (0.025, 0.675)
 
+# Threshold de "conclusivo" por classe prevista (G2.3). O corte global de
+# 0.60 usado ate' a G2.2 deixava passar como conclusivo um erro real na
+# maior parte das vezes que o modelo confundia ABG/BCG com sua versao
+# franca em Rfault alto (900-3000ohm) -- a unica faixa onde esse par erra
+# (fora dela a acuracia ja e' 100%, ver lote de 12k). Duas hipoteses de
+# atributo fisico novo pra separar esse par foram testadas e falsificadas
+# (ver memoria project_traveling_wave_feature_idea): o residuo parece ser
+# um teto fisico, entao a mitigacao e' so' recusar "conclusivo" com mais
+# rigor nessas duas classes especificas, sem mexer no classificador. Corte
+# escolhido no cotovelo da curva confianca x acerto do lote de 12k
+# (C:/RESULTPESQUISA/full12k_specialists_ab_bc/report.json): em 0.80,
+# ABG mantem 95.8% dos acertos conclusivos e derruba o falso-conclusivo de
+# 66.0%->24.8%; BCG mantem 94.8% e derruba 57.5%->15.8%. Subir mais o corte
+# rende pouco (BCG nao cai muito abaixo de ~14% nem em 0.90) e custa mais
+# recall. AB/BC (a classe franca) nao foi alterada: o erro la' e' raro o
+# bastante (2-3%) que apertar o corte custaria mais recall do que vale.
+CONCLUSIVE_THRESHOLD_BY_CLASS = {"ABG": 0.80, "BCG": 0.80}
+DEFAULT_CONCLUSIVE_THRESHOLD = 0.60
+
 
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest().upper()
@@ -162,12 +181,13 @@ def infer_fault(
                     ),
                     "method": None,
                 }
+    conclusive_threshold = CONCLUSIVE_THRESHOLD_BY_CLASS.get(predicted_class, DEFAULT_CONCLUSIVE_THRESHOLD)
     output = {
         "input": str(pl4),
         "classification": {
             "fault_class": predicted_class,
             "tree_vote_fraction": vote_fraction,
-            "conclusive": vote_fraction >= 0.60,
+            "conclusive": vote_fraction >= conclusive_threshold,
             "note": "Fração de votos; não é probabilidade calibrada.",
         },
         "location": location,

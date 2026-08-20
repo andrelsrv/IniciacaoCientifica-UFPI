@@ -88,7 +88,7 @@ Se você é desenvolvedor e quer o código-fonte com histórico completo, use
 
 ## Resultados
 
-Validação ponta-a-ponta da versão atual (**G2.2**): 25.000 simulações ATP
+Validação ponta-a-ponta da versão atual (**G2.3**): 25.000 simulações ATP
 geradas do zero (2.500 por classe, `.pl4` reais, nunca usados no treino) e
 processadas pelo mesmo executável/script que o usuário final roda —
 não um atalho estatístico que chama só o classificador.
@@ -99,15 +99,17 @@ não um atalho estatístico que chama só o classificador.
 | Localização (mesmo lote) | Conclusivo / MAE / mediana | 82,1% / 2,19 km / 0,08 km |
 | Classificação — teste cego oficial histórico (70 casos, 7 condições) | Macro-F1 | 100% |
 
-Todos os números de validação vêm de lotes gerados **depois** do treino,
-nunca reaproveitados como dado de treino (auditoria automática de vazamento
-em `src/manifest.py`). Detalhes completos, incluindo o histórico de todas as
-gerações do modelo, estão em
-[`modelos/FINAL_PIPELINE_FREEZE_G2.2.json`](modelos/FINAL_PIPELINE_FREEZE_G2.2.json).
+Números de classificação/localização acima são idênticos à G2.2 — a G2.3 não
+retreina nada, só torna o rótulo "conclusivo" mais criterioso para `ABG`/`BCG`
+(ver histórico de versões abaixo). Todos os números de validação vêm de lotes
+gerados **depois** do treino, nunca reaproveitados como dado de treino
+(auditoria automática de vazamento em `src/manifest.py`). Detalhes completos,
+incluindo o histórico de todas as gerações do modelo, estão em
+[`modelos/FINAL_PIPELINE_FREEZE_G2.3.json`](modelos/FINAL_PIPELINE_FREEZE_G2.3.json).
 
 ## Desempenho por classe
 
-> Teste de 25.000 casos reais (2.500 por classe), modelo em produção (**G2.2**).
+> Teste de 25.000 casos reais (2.500 por classe), modelo em produção (**G2.3**).
 
 | Classe | Acurácia |
 |---|:---:|
@@ -137,8 +139,14 @@ condutores da linha — ver `modelos/FINAL_PIPELINE_FREEZE_G2.1.json` para a
 investigação completa dessa assimetria física). Já passou por três rodadas
 de melhoria (correção da topologia de `Rfault`: +13 pontos; feature de
 transformação modal real: +13 pontos; reativação do classificador
-especialista: +9 pontos), saindo de ~57% para 85%. Ideias futuras: feature
-de onda viajante (ver `docs/`), ou aceitar como teto físico e documentar.
+especialista: +9 pontos), saindo de ~57% para 85%. Duas hipóteses de feature
+de onda viajante para o resíduo (concentrado em `Rfault` 900–3000 Ω) foram
+testadas empiricamente e falsificadas (AUC 0,50–0,64, indistinguível de
+ruído — ver `modelos/FINAL_PIPELINE_FREEZE_G2.3.json`), evidência de que esse
+resíduo é um teto físico e não uma lacuna de atributo. A G2.3 mitiga o dano
+em vez de perseguir mais uma feature: eleva o corte de confiança para
+`ABG`/`BCG` responderem "conclusivo" (0,80 em vez de 0,60), reduzindo a
+fração de erros que saem com falsa confiança.
 
 ## Estrutura do projeto
 
@@ -176,8 +184,8 @@ src/                         Código-fonte Python (pipeline em produção)
 modelos/                     Artefatos em produção
 ├── robust_classifier_G2.1_calibrated.joblib   Classificador ativo (com especialistas)
 ├── distance_sanity_regressor.joblib           Checagem de sanidade do localizador (ML)
-├── FINAL_PIPELINE_FREEZE_G2.2.json            Congelamento ativo + histórico completo
-├── FINAL_PIPELINE_FREEZE_G2.0.json / G2.1.json  Gerações anteriores (referenciadas em G2.2)
+├── FINAL_PIPELINE_FREEZE_G2.3.json            Congelamento ativo + histórico completo
+├── FINAL_PIPELINE_FREEZE_G2.0.json / G2.1.json / G2.2.json  Gerações anteriores (referenciadas em G2.3)
 ├── classificador_config.master.json
 └── historico/                 Modelos e congelamentos anteriores à geração G2 (ver README interno)
 
@@ -224,7 +232,7 @@ Ou, para inferência direta em linha de comando:
 cd src
 python infer_fault.py "C:\caminho\novo.pl4" `
   --classifier "..\modelos\robust_classifier_G2.1_calibrated.joblib" `
-  --freeze "..\modelos\FINAL_PIPELINE_FREEZE_G2.2.json" `
+  --freeze "..\modelos\FINAL_PIPELINE_FREEZE_G2.3.json" `
   --output resultado.json
 ```
 
@@ -353,7 +361,7 @@ produz corrente de neutro próxima de zero, com ou sem aterramento).
 - As validações incrementais são lotes informais pós-treino; apenas o
   teste cego oficial (histórico, v1) segue metodologia de campanha cega
   completa com splits bloqueados antes do treino. Recomenda-se rodar uma
-  nova campanha cega oficial com a versão G2.2 antes de qualquer alegação
+  nova campanha cega oficial com a versão G2.3 antes de qualquer alegação
   de rigor cego total.
 - A faixa 600-620 km do localizador é apenas folga técnica no teto de
   busca e não foi validada com casos reais.
@@ -407,14 +415,23 @@ Marcos principais:
   Adicionada uma feature baseada na transformação modal real da linha
   (extraída do cálculo de constantes do ATP): `AB` 56,9%→70,2%, `BC`
   71,4%→84,4%.
-- **G2.2** (atual): reavaliados os classificadores especialistas binários
+- **G2.2**: reavaliados os classificadores especialistas binários
   `AB`/`ABG` e `BC`/`BCG` (desligados desde a G2.0 por piorarem o
   resultado) à luz da feature modal nova — dessa vez ajudaram de verdade:
   `AB` 70,2%→85,3%, `BC` 84,4%→93,4% (números do teste real de 25k casos).
+- **G2.3** (atual): sem retreino. O erro residual de `AB`/`BC` confundidos
+  com `ABG`/`BCG` está 100% concentrado em `Rfault` 900–3000 Ω (abaixo
+  disso a acurácia já é 100%, ver lote de 12k casos). Duas hipóteses de
+  feature de onda viajante para resolver esse resíduo foram testadas e
+  falsificadas (AUC 0,50–0,64 — ruído), evidência de teto físico. Em vez de
+  perseguir mais uma feature, o corte de "conclusivo" para `ABG`/`BCG`
+  subiu de 0,60 para 0,80, reduzindo a fração de erros que saem com falsa
+  confiança (falso-conclusivo: `ABG` 66,0%→24,8%, `BCG` 57,5%→15,8%, mantendo
+  94-96% dos acertos conclusivos).
 
 O changelog completo de cada geração, com números detalhados e o motivo de
-cada mudança, está em `modelos/FINAL_PIPELINE_FREEZE_G2.2.json` (que
-referencia G2.1, que referencia G2.0, e assim por diante) e em
+cada mudança, está em `modelos/FINAL_PIPELINE_FREEZE_G2.3.json` (que
+referencia G2.2, que referencia G2.1, e assim por diante) e em
 `modelos/historico/` para as versões pré-G2.
 
 ---

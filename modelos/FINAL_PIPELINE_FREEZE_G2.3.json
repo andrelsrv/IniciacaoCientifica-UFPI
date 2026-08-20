@@ -1,0 +1,76 @@
+{
+  "frozen_at": "2026-08-19T00:00:00-03:00",
+  "purpose": "Promove a G2.3 a producao, substituindo a G2.2. NAO retreina o modelo -- muda so a logica de 'conclusivo' em src/infer_fault.py: threshold de fracao de votos passa a ser por classe prevista (0.80 para ABG/BCG, mantido 0.60 para as demais 8 classes), em vez de um corte global de 0.60.",
+  "history": [
+    "G2.2 (ver FINAL_PIPELINE_FREEZE_G2.2.json) documentava como known_limitation que AB (79.3%) e' o residuo depois de tres rodadas de melhoria, com duas proximas ideias: feature de onda viajante ou aceitar como teto fisico.",
+    "As duas variantes de feature de onda viajante foram testadas empiricamente em 2026-08-19 e falsificadas: (1) pico de sequencia-zero na janela de chegada, AUC 0.53-0.56; (2) coerencia complexa de sequencia-zero entre PDT/BEA, AUC 0.50-0.64, com o achado de que a coerencia alta (0.9-1.0) aparece igual em faltas francas e aterradas -- ou seja, e' artefato numerico comum do solver ATP, nao sinal fisico da falta. Ver memoria project_traveling_wave_feature_idea e C:/RESULTPESQUISA/test_zero_seq_coherence.py.",
+    "Cruzando com o lote de 12.000 casos (full12k_specialists_ab_bc/report.json), confirmado que o erro de ABG/BCG->AB/BC (e o inverso) esta' 100% concentrado em Rfault 900-3000ohm -- abaixo disso a acuracia ja e' 100%. Duas tentativas de feature nessa faixa falhando e' evidencia de teto fisico real (corrente de terra pequena demais pra distinguir de falta franca em qualquer banda), nao de lacuna de engenharia.",
+    "Decisao: em vez de perseguir mais uma variante de atributo, mitigar o dano do erro residual reduzindo quantas vezes ele sai marcado como 'conclusivo'. Analise do lote de 12k por classe PREVISTA (nao verdadeira) mostrou que ABG e BCG sao as unicas classes onde apertar o corte de confianca vale a pena: em t=0.80, ABG mantem 95.8% dos acertos conclusivos e derruba falso-conclusivo de 66.0%->24.8%; BCG mantem 94.8% e derruba 57.5%->15.8%. AB/BC (a classe franca) tem taxa de erro baixa o bastante (2-3% das previsoes) que apertar o corte la' custaria mais recall do que vale -- mantidas em 0.60."
+  ],
+  "classifier": {
+    "path": "modelos/robust_classifier_G2.1_calibrated.joblib",
+    "sha256": "150659DE6E922EE7817E197469D4EBFDDA5253B092B050AB43A56FA2BCF7A0B9",
+    "training": "Identico a G2.1/G2.2 -- nenhum retreino nesta versao. Mudanca e' so no threshold de 'conclusivo' em src/infer_fault.py (CONCLUSIVE_THRESHOLD_BY_CLASS).",
+    "feature_version": "pilot_v8_modal_transform",
+    "n_features": 67,
+    "worst_robust_macro_f1": 0.6765,
+    "rfault_note": "Faltas com terra (AG/BG/CG/ABG/BCG/CAG) aceitam Rfault ate 3000ohm. Faltas fase-fase (AB/BC/CA/ABC) exigem Rfault=0.0 -- fault_case_generator.py rejeita com erro qualquer valor positivo para essas classes.",
+    "calibration_method": "sigmoid (Platt), scikit-learn CalibratedClassifierCV, cv=prefit",
+    "modal_transform_matrix": "Ver _MODAL_TI em feature_extraction.py -- fixa, calculada pelo ATP LINE CONSTANTS para a geometria de condutores do template (disposicao horizontal, fase B no meio). NAO recalcular automaticamente por caso -- e' constante para todo o projeto enquanto a geometria da linha nao mudar.",
+    "specialist_classifiers": {
+      "AB_ABG": "USADO em inferencia -- sem mudanca desde G2.2",
+      "BC_BCG": "USADO em inferencia -- sem mudanca desde G2.2",
+      "CA_CAG": "USADO em inferencia -- sem mudanca desde G2.0/G2.1"
+    },
+    "conclusive_threshold_by_class": {
+      "ABG": 0.80,
+      "BCG": 0.80,
+      "default": 0.60,
+      "note": "Nova nesta versao. Aplica-se a classe FINAL prevista (pos-especialista). Ver CONCLUSIVE_THRESHOLD_BY_CLASS em src/infer_fault.py para o comentario com a analise completa."
+    },
+    "test_12k_report": "C:/RESULTPESQUISA/full12k_specialists_ab_bc/report.json"
+  },
+  "test_summary": {
+    "geral_12000_casos": "11438/12000 = 95.3% (classificacao inalterada -- so o rotulo 'conclusivo' muda, nao a classe prevista)",
+    "por_classe_geral": {
+      "AG": "100.0%", "BG": "100.0%", "CG": "99.8%",
+      "AB": "79.3%", "BC": "87.9%", "CA": "94.6%",
+      "ABG": "97.4%", "BCG": "98.1%", "CAG": "98.5%", "ABC": "97.6%"
+    },
+    "conclusive_threshold_effect": {
+      "ABG_em_t080": "recall-dos-corretos=95.8% (era 99.1% em t=0.60); falso-conclusivo=24.8% (era 66.0% em t=0.60)",
+      "BCG_em_t080": "recall-dos-corretos=94.8% (era 98.7% em t=0.60); falso-conclusivo=15.8% (era 57.5% em t=0.60)"
+    }
+  },
+  "localizer": {
+    "validated_distance_range_km": [15, 600],
+    "note": "Sem alteracoes desde a G2.2.",
+    "snr_threshold_db": 50.0,
+    "safe_event_window_s": [0.025, 0.675],
+    "maximum_search_distance_km": 620.0,
+    "known_issue": "Ver FINAL_PIPELINE_FREEZE_G2.2.json -- sem alteracoes nesta versao."
+  },
+  "simulation_template": {
+    "tmax_s": 0.7,
+    "note": "Sem alteracoes desde a G1."
+  },
+  "traveling_wave_velocity_km_per_us": 0.29927465071442727,
+  "adaptive_snr_threshold_db": 50.0,
+  "multiscale_cutoffs_hz": [60000, 80000, 100000, 150000],
+  "multiscale_maximum_spread_km": 3.0,
+  "distance_sanity_check": {
+    "path": "distance_sanity_regressor.joblib",
+    "sha256": "6813F3D5FCF3466D543A8B451F76A70922AC1DBC611ADF5764D65C3BF94B2C15",
+    "model": "RandomForestRegressor(n_estimators=400, min_samples_leaf=2)",
+    "training": "Sem alteracoes desde a G1.",
+    "max_disagreement_km": 100.0,
+    "note": "Retreino deste regressor incluindo a faixa de alta impedancia fica como trabalho futuro."
+  },
+  "known_limitations": [
+    "AB continua sendo a classe mais fraca (79.3% de acuracia bruta) -- o threshold de conclusivo NAO muda a acuracia, so reduz quantas vezes o erro residual sai disfarcado de 'conclusivo'. Duas hipoteses de feature nova foram testadas e falsificadas nesta versao (ver history acima); considerado teto fisico ate' surgir uma hipotese fisicamente nova.",
+    "'Covas' de distancia x angulo em AB/BC (ver FINAL_PIPELINE_FREEZE_G2.2.json known_limitations) -- problema distinto do Rfault alto, nao investigado nesta versao.",
+    "O corte de 0.80 para ABG/BCG foi escolhido no cotovelo da curva do lote de 12k (ganho marginal decrescente acima disso); nao foi validado contra o teste cego oficial nem contra o lote real_pipeline_test_25k -- recomenda-se revalidar antes de qualquer alegacao de rigor cego com este threshold."
+  ],
+  "policy": "EM PRODUCAO. Promovido pelo usuario em 2026-08-19. Mitigacao de dano (menos falso-conclusivo) apos duas hipoteses de correcao de causa (feature de onda viajante) serem falsificadas empiricamente.",
+  "based_on": "modelos/FINAL_PIPELINE_FREEZE_G2.2.json"
+}
